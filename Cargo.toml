@@ -1,0 +1,21 @@
+[package]
+name = "webview2"
+version = "0.1.0"
+authors = ["Yin Guanhao <sopium@mysterious.site>"]
+edition = "2018"
+license = "MIT"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[features]
+default = ["embed-dll"]
+embed-dll = []
+
+[dependencies]
+winapi = { version = "0.3.8", features = ["combaseapi", "libloaderapi"] }
+widestring = "0.4.0"
+# com = "0.1"
+com = { git = "https://github.com/microsoft/com-rs.git" }
+
+[dev-dependencies]
+winit = "0.20.0"
