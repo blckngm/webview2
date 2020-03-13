@@ -9,6 +9,12 @@
 //! alongside the executable file and dynamically loaded at runtime. License of
 //! the DLL file (part of the WebView2 SDK) is included in the
 //! `Microsoft.Web.WebView2.0.9.430` folder.
+//!
+//! There are some high level, idiomatic Rust wrappers, but they are very
+//! incomplete. The low level bindings in `sys` though, is automatically
+//! generated and complete. You can use the `as_raw` methods to convert to raw
+//! COM objects and call all those methods. The `callback` macro can be helpful
+//! for implementing callbacks as COM objects.
 
 #![cfg(windows)]
 // Caused by the `com_interface` macro.
@@ -44,8 +50,9 @@ const DLL: &[u8] =
 const DLL: &[u8] =
     include_bytes!("..\\Microsoft.Web.WebView2.0.9.430\\build\\arm64\\WebView2Loader.dll");
 
-// Returns a pointer that implements the COM callback interface with the specified closure.
-// Ala C++ Microsoft::WRT::Callback.
+/// Returns a pointer that implements the COM callback interface with the specified closure.
+/// Inspired by C++ Microsoft::WRT::Callback.
+#[macro_export]
 macro_rules! callback {
     ($name:ident, move | $($arg:ident : $arg_type:ty),* $(,)?| -> $ret_type:ty { $($body:tt)* }) => {{
         #[com::co_class(implements($name))]
@@ -260,7 +267,7 @@ impl<'a> EnvironmentBuilder<'a> {
                     .as_ref()
                     .map(|p| p.as_ptr())
                     .unwrap_or(ptr::null()),
-                completed,
+                completed.as_raw(),
             )
         })
     }
@@ -284,8 +291,12 @@ impl Environment {
         );
         check_hresult(unsafe {
             self.inner
-                .create_core_webview2_host(parent_window, completed)
+                .create_core_web_view2_host(parent_window, completed.as_raw())
         })
+    }
+
+    pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2Environment> {
+        &self.inner
     }
 }
 
@@ -308,10 +319,14 @@ impl Host {
     }
     pub fn get_webview(&self) -> Result<WebView> {
         let mut ppv: *mut *mut ICoreWebView2VTable = ptr::null_mut();
-        check_hresult(unsafe { self.inner.get_core_webview2(&mut ppv) })?;
+        check_hresult(unsafe { self.inner.get_core_web_view2(&mut ppv) })?;
         Ok(WebView {
             inner: unsafe { add_ref_to_rc(ppv) },
         })
+    }
+
+    pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2Host> {
+        &self.inner
     }
 }
 
@@ -351,20 +366,14 @@ impl WebView {
     ) -> Result<()> {
         let handler = callback!(
             ICoreWebView2WebMessageReceivedEventHandler,
-            move |sender: ComPtr<dyn ICoreWebView2>,
-                  args: ComPtr<dyn ICoreWebView2WebMessageReceivedEventArgs>|
+            move |sender: *mut *mut ICoreWebView2VTable,
+                  args: *mut *mut ICoreWebView2WebMessageReceivedEventArgsVTable|
                   -> HRESULT {
                 let sender = WebView {
-                    inner: unsafe {
-                        sender.add_ref();
-                        sender.upgrade()
-                    },
+                    inner: unsafe { add_ref_to_rc(sender) },
                 };
                 let args = WebMessageReceivedEventArgs {
-                    inner: unsafe {
-                        args.add_ref();
-                        args.upgrade()
-                    },
+                    inner: unsafe { add_ref_to_rc(args) },
                 };
                 to_hresult(handler(sender, args))
             }
@@ -372,8 +381,12 @@ impl WebView {
 
         check_hresult(unsafe {
             self.inner
-                .add_web_message_received(handler, ptr::null_mut())
+                .add_web_message_received(handler.as_raw(), ptr::null_mut())
         })
+    }
+
+    pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2> {
+        &self.inner
     }
 }
 
@@ -383,21 +396,25 @@ impl Settings {
         check_hresult(unsafe { self.inner.put_is_status_bar_enabled(enabled) })
     }
 
-    pub fn put_are_default_context_menu_enabled(&self, enabled: bool) -> Result<()> {
+    pub fn put_are_default_context_menus_enabled(&self, enabled: bool) -> Result<()> {
         let enabled = if enabled { 1 } else { 0 };
-        check_hresult(unsafe { self.inner.put_are_default_context_menu_enabled(enabled) })
+        check_hresult(unsafe { self.inner.put_are_default_context_menus_enabled(enabled) })
     }
 
     pub fn put_is_zoom_control_enabled(&self, enabled: bool) -> Result<()> {
         let enabled = if enabled { 1 } else { 0 };
         check_hresult(unsafe { self.inner.put_is_zoom_control_enabled(enabled) })
     }
+
+    pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2Settings> {
+        &self.inner
+    }
 }
 
 impl WebMessageReceivedEventArgs {
     pub fn get_web_message_as_string(&self) -> Result<String> {
         let mut message: LPWSTR = ptr::null_mut();
-        check_hresult(unsafe { self.inner.get_web_message_as_string(&mut message) })?;
+        check_hresult(unsafe { self.inner.try_get_web_message_as_string(&mut message) })?;
         let message1 = unsafe { WideCStr::from_ptr_str(message) };
         let message1 = message1.to_string().map_err(|_| Error { hresult: E_FAIL });
         unsafe {
@@ -405,10 +422,14 @@ impl WebMessageReceivedEventArgs {
         }
         message1
     }
+
+    pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2WebMessageReceivedEventArgs> {
+        &self.inner
+    }
 }
 
 #[doc(inline)]
-pub use sys::MoveFocusReason;
+pub type MoveFocusReason = sys::CORE_WEBVIEW2_MOVE_FOCUS_REASON;
 
 /// A webview2 error. Actually, an `HRESULT`.
 #[derive(Debug, Eq, PartialEq)]

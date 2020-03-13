@@ -1,0 +1,53 @@
+WHITESPACE = _{ " " | "\t" | NEWLINE }
+single_line_comment = _{ "//" ~ !"/" ~ (!NEWLINE ~ ANY)* ~ NEWLINE }
+multi_line_comment = _{ "/*" ~ ANY* ~ "*/" }
+COMMENT = _{ single_line_comment | multi_line_comment }
+
+doc_comment = @{ ("///" ~ (!NEWLINE ~ ANY)* ~ NEWLINE ~ (" " | "\t")*)+ }
+
+alpha = { 'a'..'z' | 'A'..'Z' }
+digit = { '0'..'9' }
+
+identifier = @{ !digit ~ (alpha | digit | "_")+ }
+
+_const = { "const" }
+pointer = { "*" }
+_type = { identifier ~ (_const | pointer)* }
+
+// Method.
+parameter_attribute = { identifier }
+parameter_attributes = _{ "[" ~ parameter_attribute ~ ("," ~ parameter_attribute)* ~ "]" }
+parameter = { parameter_attributes? ~ _type ~ identifier }
+
+parameters = _{ (parameter ~ ("," ~ parameter)*)? }
+
+method_name = { identifier }
+method = { doc_comment? ~ _type ~ method_name ~ "(" ~ parameters ~ ")" ~ ";" }
+
+// Enum.
+variant = { doc_comment? ~ identifier }
+variants = _{ (variant ~ ("," ~ variant)* ~ ","?)? }
+typedef_enum = { doc_comment? ~ "[v1_enum]" ~ "typedef" ~ "enum" ~ identifier ~ "{" ~ variants ~ "}" ~ identifier ~ ";"  }
+
+// Struct.
+field = { doc_comment? ~ _type ~ identifier ~ ";" }
+typedef_struct = { doc_comment? ~ "typedef" ~ "struct" ~ identifier ~ "{" ~ field* ~ "}" ~ identifier ~ ";" }
+
+// Interface.
+uuid = { (alpha | digit | "-")+ }
+_uuid = _{ "uuid" ~ "(" ~ uuid ~ ")" }
+other_attribute = { !("uuid" ~ "(") ~ identifier ~ ("(" ~ (!")" ~ ANY)+ ~ ")")?  }
+interface_attribute = _{ _uuid | other_attribute }
+interface_attributes = _{ "[" ~ interface_attribute ~ ("," ~ interface_attribute)* ~ "]" }
+interface_name = { identifier }
+parent = { identifier }
+interface = { doc_comment? ~ interface_attributes? ~
+    "interface" ~ interface_name ~ ":" ~ parent ~ "{" ~
+    (typedef_enum | typedef_struct | method)* ~
+    "}" }
+
+import = { "import" ~ "\"" ~ (!"\"" ~ ANY)+ ~ "\"" ~ ";" }
+interface_forward_decleration = { "interface" ~ identifier ~ ";" }
+cpp_quote = { doc_comment? ~ "cpp_quote" ~ "(" ~ "\"" ~ (!"\"" ~ ANY)+ ~ "\"" ~ ")" }
+
+document = { SOI ~ import* ~ interface_forward_decleration* ~ (interface | cpp_quote)* ~ EOI }

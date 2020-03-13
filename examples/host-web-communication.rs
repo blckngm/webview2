@@ -32,7 +32,7 @@ fn main() {
 
                 let _ = w.get_settings().map(|settings| {
                     let _ = settings.put_is_status_bar_enabled(false);
-                    let _ = settings.put_are_default_context_menu_enabled(false);
+                    let _ = settings.put_are_default_context_menus_enabled(false);
                     let _ = settings.put_is_zoom_control_enabled(false);
                 });
 
