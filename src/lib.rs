@@ -346,10 +346,69 @@ impl WebView {
         let html_content = WideCString::from_str(html_content)?;
         check_hresult(unsafe { self.inner.navigate_to_string(html_content.as_ptr()) })
     }
-    // TODO: callback.
-    pub fn execute_script(&self, script: &str) -> Result<()> {
+    // Don't take an `Option<impl FnOnce>`:
+    // https://users.rust-lang.org/t/solved-how-to-pass-none-to-a-function-when-an-option-closure-is-expected/10956/8
+    pub fn add_script_to_execute_on_document_created(
+        &self,
+        script: &str,
+        callback: impl FnOnce(String) -> Result<()> + 'static,
+    ) -> Result<()> {
         let script = WideCString::from_str(script)?;
-        check_hresult(unsafe { self.inner.execute_script(script.as_ptr(), ptr::null_mut()) })
+        let callback = RefCell::new(Some(callback));
+        let callback = callback!(
+            ICoreWebView2AddScriptToExecuteOnDocumentCreatedCompletedHandler,
+            move |error_code: HRESULT, id: LPCWSTR| -> HRESULT {
+                to_hresult(check_hresult(error_code).and_then(|_| {
+                    let id = unsafe { WideCStr::from_ptr_str(id) }
+                        .to_string()
+                        .map_err(|_| Error::new(E_FAIL))?;
+                    if let Some(callback) = callback.borrow_mut().take() {
+                        callback(id)
+                    } else {
+                        Ok(())
+                    }
+                }))
+            }
+        );
+        check_hresult(unsafe {
+            self.inner
+                .add_script_to_execute_on_document_created(script.as_ptr(), callback.as_raw())
+        })
+    }
+    pub fn remove_script_to_execute_on_document_created(&self, id: &str) -> Result<()> {
+        let id = WideCString::from_str(id)?;
+        check_hresult(unsafe {
+            self.inner
+                .remove_script_to_execute_on_document_created(id.as_ptr())
+        })
+    }
+    pub fn execute_script(
+        &self,
+        script: &str,
+        callback: impl FnOnce(String) -> Result<()> + 'static,
+    ) -> Result<()> {
+        let script = WideCString::from_str(script)?;
+        let callback = RefCell::new(Some(callback));
+        let callback = callback!(
+            ICoreWebView2ExecuteScriptCompletedHandler,
+            move |error_code: HRESULT, result_object_as_json: LPCWSTR| -> HRESULT {
+                to_hresult(check_hresult(error_code).and_then(|_| {
+                    let result_object_as_json_string =
+                        unsafe { WideCStr::from_ptr_str(result_object_as_json) }
+                            .to_string()
+                            .map_err(|_| Error::new(E_FAIL))?;
+                    if let Some(callback) = callback.borrow_mut().take() {
+                        callback(result_object_as_json_string)
+                    } else {
+                        Ok(())
+                    }
+                }))
+            }
+        );
+        check_hresult(unsafe {
+            self.inner
+                .execute_script(script.as_ptr(), callback.as_raw())
+        })
     }
     pub fn post_web_message_as_json(&self, web_message_as_json: &str) -> Result<()> {
         let message = WideCString::from_str(web_message_as_json)?;
@@ -359,11 +418,12 @@ impl WebView {
         let message = WideCString::from_str(web_message_as_string)?;
         check_hresult(unsafe { self.inner.post_web_message_as_string(message.as_ptr()) })
     }
-    // TODO: token and remove.
     pub fn add_web_message_received(
         &self,
         handler: impl Fn(WebView, WebMessageReceivedEventArgs) -> Result<()> + 'static,
-    ) -> Result<()> {
+    ) -> Result<EventRegistrationToken> {
+        let mut token: EventRegistrationToken = unsafe { mem::zeroed() };
+
         let handler = callback!(
             ICoreWebView2WebMessageReceivedEventHandler,
             move |sender: *mut *mut ICoreWebView2VTable,
@@ -381,8 +441,12 @@ impl WebView {
 
         check_hresult(unsafe {
             self.inner
-                .add_web_message_received(handler.as_raw(), ptr::null_mut())
-        })
+                .add_web_message_received(handler.as_raw(), &mut token)
+        })?;
+        Ok(token)
+    }
+    pub fn remove_web_message_received(&self, token: EventRegistrationToken) -> Result<()> {
+        check_hresult(unsafe { self.inner.remove_web_message_received(token) })
     }
 
     pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2> {
@@ -458,6 +522,9 @@ impl WebMessageReceivedEventArgs {
 
 #[doc(inline)]
 pub type MoveFocusReason = sys::CORE_WEBVIEW2_MOVE_FOCUS_REASON;
+
+#[doc(inline)]
+pub use sys::EventRegistrationToken;
 
 /// A webview2 error. Actually, an `HRESULT`.
 #[derive(Debug, Eq, PartialEq)]

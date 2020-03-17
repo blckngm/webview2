@@ -46,7 +46,7 @@ fn main() {
                 w.add_web_message_received(|w, args| {
                     let message = args.get_web_message_as_string()?;
                     println!("Message from webview: {}", message);
-                    w.execute_script("document.write('<h2>WebView2 - Host Web Communication</h2><p>I got your message!</p>')")
+                    w.execute_script("document.write('<h2>WebView2 - Host Web Communication</h2><p>I got your message!</p>')", |_| Ok(()))
                 }).expect("add_web_message_received");
 
                 *webview_host.borrow_mut() = Some(host);
