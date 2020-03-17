@@ -390,21 +390,49 @@ impl WebView {
     }
 }
 
+macro_rules! get_bool {
+    ($get_method:ident) => {
+        pub fn $get_method(&self) -> Result<bool> {
+            let mut enabled: BOOL = 0;
+            check_hresult(unsafe { self.inner.$get_method(&mut enabled) })?;
+            Ok(enabled != 0)
+        }
+    };
+}
+
+macro_rules! put_bool {
+    ($put_method:ident) => {
+        pub fn $put_method(&self, enabled: bool) -> Result<()> {
+            let enabled = if enabled { 1 } else { 0 };
+            check_hresult(unsafe { self.inner.$put_method(enabled) })
+        }
+    };
+}
+
 impl Settings {
-    pub fn put_is_status_bar_enabled(&self, enabled: bool) -> Result<()> {
-        let enabled = if enabled { 1 } else { 0 };
-        check_hresult(unsafe { self.inner.put_is_status_bar_enabled(enabled) })
-    }
+    get_bool!(get_is_script_enabled);
+    put_bool!(put_is_script_enabled);
 
-    pub fn put_are_default_context_menus_enabled(&self, enabled: bool) -> Result<()> {
-        let enabled = if enabled { 1 } else { 0 };
-        check_hresult(unsafe { self.inner.put_are_default_context_menus_enabled(enabled) })
-    }
+    get_bool!(get_is_web_message_enabled);
+    put_bool!(put_is_web_message_enabled);
 
-    pub fn put_is_zoom_control_enabled(&self, enabled: bool) -> Result<()> {
-        let enabled = if enabled { 1 } else { 0 };
-        check_hresult(unsafe { self.inner.put_is_zoom_control_enabled(enabled) })
-    }
+    get_bool!(get_are_default_script_dialogs_enabled);
+    put_bool!(put_are_default_script_dialogs_enabled);
+
+    get_bool!(get_is_status_bar_enabled);
+    put_bool!(put_is_status_bar_enabled);
+
+    get_bool!(get_are_dev_tools_enabled);
+    put_bool!(put_are_dev_tools_enabled);
+
+    get_bool!(get_are_default_context_menus_enabled);
+    put_bool!(put_are_default_context_menus_enabled);
+
+    get_bool!(get_are_remote_objects_allowed);
+    put_bool!(put_are_remote_objects_allowed);
+
+    get_bool!(get_is_zoom_control_enabled);
+    put_bool!(put_is_zoom_control_enabled);
 
     pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2Settings> {
         &self.inner
