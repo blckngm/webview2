@@ -338,6 +338,16 @@ impl WebView {
             inner: unsafe { add_ref_to_rc(ppv) },
         })
     }
+    pub fn get_uri(&self) -> Result<String> {
+        let mut uri: LPWSTR = ptr::null_mut();
+        check_hresult(unsafe { self.inner.get_source(&mut uri) })?;
+        let uri1 = unsafe { WideCStr::from_ptr_str(uri) };
+        let uri1 = uri1.to_string().map_err(|_| Error { hresult: E_FAIL });
+        unsafe {
+            CoTaskMemFree(uri as _);
+        }
+        uri1
+    }
     pub fn navigate(&self, uri: &str) -> Result<()> {
         let uri = WideCString::from_str(uri)?;
         check_hresult(unsafe { self.inner.navigate(uri.as_ptr()) })
@@ -447,6 +457,46 @@ impl WebView {
     }
     pub fn remove_web_message_received(&self, token: EventRegistrationToken) -> Result<()> {
         check_hresult(unsafe { self.inner.remove_web_message_received(token) })
+    }
+    pub fn open_dev_tools_window(&self) -> Result<()> {
+        check_hresult(unsafe { self.inner.open_dev_tools_window() })
+    }
+    pub fn reload(&self) -> Result<()> {
+        check_hresult(unsafe { self.inner.reload() })
+    }
+    pub fn stop(&self) -> Result<()> {
+        check_hresult(unsafe { self.inner.stop() })
+    }
+    pub fn go_back(&self) -> Result<()> {
+        check_hresult(unsafe { self.inner.go_back() })
+    }
+    pub fn go_forward(&self) -> Result<()> {
+        check_hresult(unsafe { self.inner.go_forward() })
+    }
+    pub fn get_can_go_back(&self) -> Result<bool> {
+        let mut canGoBack: BOOL = 0;
+        check_hresult(unsafe { self.inner.get_can_go_back(&mut canGoBack) })?;
+        Ok(canGoBack != 0)
+    }
+    pub fn get_can_go_forward(&self) -> Result<bool> {
+        let mut canGoForward: BOOL = 0;
+        check_hresult(unsafe { self.inner.get_can_go_forward(&mut canGoForward) })?;
+        Ok(canGoForward != 0)
+    }
+    pub fn get_contains_full_screen_element(&self) -> Result<bool> {
+        let mut containsFullScreenElement: BOOL = 0;
+        check_hresult(unsafe { self.inner.get_contains_full_screen_element(&mut containsFullScreenElement) })?;
+        Ok(containsFullScreenElement != 0)
+    }
+    pub fn get_document_title(&self) -> Result<String> {
+        let mut title: LPWSTR = ptr::null_mut();
+        check_hresult(unsafe { self.inner.get_document_title(&mut title) })?;
+        let title1 = unsafe { WideCStr::from_ptr_str(title) };
+        let title1 = title1.to_string().map_err(|_| Error { hresult: E_FAIL });
+        unsafe {
+            CoTaskMemFree(title as _);
+        }
+        title1
     }
 
     pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2> {
