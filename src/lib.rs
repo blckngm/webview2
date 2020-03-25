@@ -121,10 +121,34 @@ pub struct Settings {
     inner: ComRc<dyn ICoreWebView2Settings>,
 }
 
+/// `ICoreWebView2ContentLoadingEventArgs`.
+#[derive(Clone)]
+pub struct ContentLoadingEventArgs {
+    inner: ComRc<dyn ICoreWebView2ContentLoadingEventArgs>,
+}
+
 /// `ICoreWebView2WebMessageReceivedEventArgs`.
 #[derive(Clone)]
 pub struct WebMessageReceivedEventArgs {
     inner: ComRc<dyn ICoreWebView2WebMessageReceivedEventArgs>,
+}
+
+/// `ICoreWebView2WebResourceRequest`.
+#[derive(Clone)]
+pub struct WebResourceRequest {
+    inner: ComRc<dyn ICoreWebView2WebResourceRequest>,
+}
+
+/// `ICoreWebView2WebResourceResponse`.
+#[derive(Clone)]
+pub struct WebResourceResponse {
+    inner: ComRc<dyn ICoreWebView2WebResourceResponse>,
+}
+
+/// `ICoreWebView2WebResourceRequestedEventArgs`.
+#[derive(Clone)]
+pub struct WebResourceRequestedEventArgs {
+    inner: ComRc<dyn ICoreWebView2WebResourceRequestedEventArgs>,
 }
 
 /// A builder for calling the `CreateCoreWebView2EnvironmentWithDetails`
@@ -343,7 +367,7 @@ macro_rules! add_event_handle_host {
     };
 }
 
-macro_rules! add_event_handle {
+macro_rules! add_event_handle_view {
     ($method:ident, $arg_type:ident) => {
         pub fn $method(
             &self,
@@ -365,6 +389,38 @@ macro_rules! add_event_handle {
 
             check_hresult(unsafe {
                 self.inner.$method(event_handler.as_raw(), &mut token)
+            })?;
+            Ok(token)
+        }
+    };
+}
+
+
+macro_rules! add_event_handle {
+    ($method:ident, $arg_type:ident, $arg_args:ident, $arg_args_type:ident) => {
+        pub fn $method(
+            &self,
+            handler: impl Fn(WebView, $arg_args) -> Result<()> + 'static,
+        ) -> Result<EventRegistrationToken> {
+            let mut token: EventRegistrationToken = unsafe { mem::zeroed() };
+
+            let handler = callback!(
+                $arg_type,
+                move |sender: *mut *mut ICoreWebView2VTable,
+                    args: *mut *mut $arg_args_type|
+                    -> HRESULT {
+                    let sender = WebView {
+                        inner: unsafe { add_ref_to_rc(sender) },
+                    };
+                    let args = $arg_args {
+                        inner: unsafe { add_ref_to_rc(args) },
+                    };
+                    to_hresult(handler(sender, args))
+                }
+            );
+
+            check_hresult(unsafe {
+                self.inner.$method(handler.as_raw(), &mut token)
             })?;
             Ok(token)
         }
@@ -473,11 +529,16 @@ impl WebView {
     }
     // TODO: add_navigation_starting //eventHandler
     remove_event_handle!(remove_navigation_starting);
-    // TODO: add_content_loading //eventHandler
+    add_event_handle!(
+        add_content_loading,
+        ICoreWebView2ContentLoadingEventHandler,
+        ContentLoadingEventArgs,
+        ICoreWebView2ContentLoadingEventArgsVTable
+    );
     remove_event_handle!(remove_content_loading);
     // TODO: add_source_changed //eventHandler
     remove_event_handle!(remove_source_changed);
-    add_event_handle!(
+    add_event_handle_view!(
         add_history_changed,
         ICoreWebView2HistoryChangedEventHandler
     );
@@ -556,7 +617,7 @@ impl WebView {
                 .execute_script(script.as_ptr(), callback.as_raw())
         })
     }
-    add_event_handle!(
+    add_event_handle_view!(
         add_document_title_changed,
         ICoreWebView2DocumentTitleChangedEventHandler
     );
@@ -571,33 +632,12 @@ impl WebView {
         let message = WideCString::from_str(web_message_as_string)?;
         check_hresult(unsafe { self.inner.post_web_message_as_string(message.as_ptr()) })
     }
-    pub fn add_web_message_received(
-        &self,
-        handler: impl Fn(WebView, WebMessageReceivedEventArgs) -> Result<()> + 'static,
-    ) -> Result<EventRegistrationToken> {
-        let mut token: EventRegistrationToken = unsafe { mem::zeroed() };
-
-        let handler = callback!(
-            ICoreWebView2WebMessageReceivedEventHandler,
-            move |sender: *mut *mut ICoreWebView2VTable,
-                  args: *mut *mut ICoreWebView2WebMessageReceivedEventArgsVTable|
-                  -> HRESULT {
-                let sender = WebView {
-                    inner: unsafe { add_ref_to_rc(sender) },
-                };
-                let args = WebMessageReceivedEventArgs {
-                    inner: unsafe { add_ref_to_rc(args) },
-                };
-                to_hresult(handler(sender, args))
-            }
-        );
-
-        check_hresult(unsafe {
-            self.inner
-                .add_web_message_received(handler.as_raw(), &mut token)
-        })?;
-        Ok(token)
-    }
+    add_event_handle!(
+        add_web_message_received,
+        ICoreWebView2WebMessageReceivedEventHandler,
+        WebMessageReceivedEventArgs,
+        ICoreWebView2WebMessageReceivedEventArgsVTable
+    );
     remove_event_handle!(remove_web_message_received);
     // TODO: call_dev_tools_protocol_method
     // TODO: get_browser_process_id
@@ -613,17 +653,22 @@ impl WebView {
     // TODO: add_remote_object
     // TODO: remove_remote_object
     call!(open_dev_tools_window);
-    add_event_handle!(
+    add_event_handle_view!(
         add_contains_full_screen_element_changed,
         ICoreWebView2ContainsFullScreenElementChangedEventHandler
     );
     remove_event_handle!(remove_contains_full_screen_element_changed);
     get_bool!(get_contains_full_screen_element);
-    // TODO: add_web_resource_requested //eventHandler
+    add_event_handle!(
+        add_web_resource_requested,
+        ICoreWebView2WebResourceRequestedEventHandler,
+        WebResourceRequestedEventArgs,
+        ICoreWebView2WebResourceRequestedEventArgsVTable
+    );
     remove_event_handle!(remove_web_resource_requested);
     // TODO: add_web_resource_requested_filter
     // TODO: remove_web_resource_requested_filter
-    add_event_handle!(
+    add_event_handle_view!(
         add_window_close_requested,
         ICoreWebView2WindowCloseRequestedEventHandler
     );
@@ -664,12 +709,61 @@ impl Settings {
     }
 }
 
+impl ContentLoadingEventArgs {
+    get_bool!(get_is_error_page);
+    // TODO: get_navigation_id //UINT64
+
+    pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2ContentLoadingEventArgs> {
+        &self.inner
+    }
+}
+
 impl WebMessageReceivedEventArgs {
     get_string!(get_source);
     get_string!(try_get_web_message_as_string);
     get_string!(get_web_message_as_json);
 
     pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2WebMessageReceivedEventArgs> {
+        &self.inner
+    }
+}
+
+impl WebResourceRequest {
+    // TODO: get_uri //LPWSTR
+    // TODO: put_uri //LPCWSTR
+    // TODO: get_method //LPWSTR
+    // TODO: put_method //LPCWSTR
+    // TODO: get_content //IStreamVTable
+    // TODO: put_content //IStreamVTable
+    // TODO: get_headers //ICoreWebView2HttpRequestHeadersVTable
+
+    pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2WebResourceRequest> {
+        &self.inner
+    }
+}
+
+impl WebResourceResponse {
+    // TODO: get_content //IStreamVTable
+    // TODO: put_content //IStreamVTable
+    // TODO: get_headers //ICoreWebView2HttpResponseHeadersVTable
+    // TODO: get_status_code //i32
+    // TODO: put_status_code //i32
+    // TODO: get_reason_phrase //LPWSTR
+    // TODO: put_reason_phrase //LPCWSTR
+
+    pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2WebResourceResponse> {
+        &self.inner
+    }
+}
+
+impl WebResourceRequestedEventArgs {
+    // TODO: get_request //ICoreWebView2WebResourceRequestVTable
+    // TODO: get_response //ICoreWebView2WebResourceResponseVTable
+    // TODO: put_response //ICoreWebView2WebResourceResponseVTable
+    // TODO: get_deferral //ICoreWebView2DeferralVTable
+    // TODO: get_resource_context //CORE_WEBVIEW2_WEB_RESOURCE_CONTEXT
+
+    pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2WebResourceRequestedEventArgs> {
         &self.inner
     }
 }
