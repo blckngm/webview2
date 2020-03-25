@@ -537,6 +537,7 @@ impl Settings {
 }
 
 impl WebMessageReceivedEventArgs {
+    get_string!(get_source);
     get_string!(try_get_web_message_as_string);
     get_string!(get_web_message_as_json);
 
