@@ -151,6 +151,24 @@ pub struct WebResourceRequestedEventArgs {
     inner: ComRc<dyn ICoreWebView2WebResourceRequestedEventArgs>,
 }
 
+/// `ICoreWebView2NavigationCompletedEventArgs`.
+#[derive(Clone)]
+pub struct NavigationCompletedEventArgs {
+    inner: ComRc<dyn ICoreWebView2NavigationCompletedEventArgs>,
+}
+
+/// `ICoreWebView2NavigationStartingEventArgs`.
+#[derive(Clone)]
+pub struct NavigationStartingEventArgs {
+    inner: ComRc<dyn ICoreWebView2NavigationStartingEventArgs>,
+}
+
+/// `ICoreWebView2SourceChangedEventArgs`.
+#[derive(Clone)]
+pub struct SourceChangedEventArgs {
+    inner: ComRc<dyn ICoreWebView2SourceChangedEventArgs>,
+}
+
 /// A builder for calling the `CreateCoreWebView2EnvironmentWithDetails`
 /// function.
 #[derive(Default)]
@@ -527,7 +545,12 @@ impl WebView {
         let html_content = WideCString::from_str(html_content)?;
         check_hresult(unsafe { self.inner.navigate_to_string(html_content.as_ptr()) })
     }
-    // TODO: add_navigation_starting //eventHandler
+    add_event_handle!(
+        add_navigation_starting,
+        ICoreWebView2NavigationStartingEventHandler,
+        NavigationStartingEventArgs,
+        ICoreWebView2NavigationStartingEventArgsVTable
+    );
     remove_event_handle!(remove_navigation_starting);
     add_event_handle!(
         add_content_loading,
@@ -536,14 +559,24 @@ impl WebView {
         ICoreWebView2ContentLoadingEventArgsVTable
     );
     remove_event_handle!(remove_content_loading);
-    // TODO: add_source_changed //eventHandler
+    add_event_handle!(
+        add_source_changed,
+        ICoreWebView2SourceChangedEventHandler,
+        SourceChangedEventArgs,
+        ICoreWebView2SourceChangedEventArgsVTable
+    );
     remove_event_handle!(remove_source_changed);
     add_event_handle_view!(
         add_history_changed,
         ICoreWebView2HistoryChangedEventHandler
     );
     remove_event_handle!(remove_history_changed);
-    // TODO: add_navigation_completed //eventHandler
+    add_event_handle!(
+        add_navigation_completed,
+        ICoreWebView2NavigationCompletedEventHandler,
+        NavigationCompletedEventArgs,
+        ICoreWebView2NavigationCompletedEventArgsVTable
+    );
     remove_event_handle!(remove_navigation_completed);
     // TODO: add_frame_navigation_starting //eventHandler
     remove_event_handle!(remove_frame_navigation_starting);
@@ -650,8 +683,8 @@ impl WebView {
     // TODO: add_new_window_requested //eventHandler
     remove_event_handle!(remove_new_window_requested);
     get_string!(get_document_title);
-    // TODO: add_remote_object
-    // TODO: remove_remote_object
+    // TODO: add_remote_object ??
+    // TODO: remove_remote_object ??
     call!(open_dev_tools_window);
     add_event_handle_view!(
         add_contains_full_screen_element_changed,
@@ -764,6 +797,38 @@ impl WebResourceRequestedEventArgs {
     // TODO: get_resource_context //CORE_WEBVIEW2_WEB_RESOURCE_CONTEXT
 
     pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2WebResourceRequestedEventArgs> {
+        &self.inner
+    }
+}
+
+impl NavigationCompletedEventArgs {
+    get_bool!(get_is_success);
+    // TODO: get_web_error_status //CORE_WEBVIEW2_WEB_ERROR_STATUS
+    // TODO: get_navigation_id //UINT64
+
+    pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2NavigationCompletedEventArgs> {
+        &self.inner
+    }
+}
+
+impl NavigationStartingEventArgs {
+    // TODO: get_uri //LPWSTR
+    get_bool!(get_is_user_initiated);
+    get_bool!(get_is_redirected);
+    // TODO: get_request_headers //ICoreWebView2HttpRequestHeadersVTable
+    get_bool!(get_cancel);
+    put_bool!(put_cancel);
+    // TODO: get_navigation_id //UINT64
+
+    pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2NavigationStartingEventArgs> {
+        &self.inner
+    }
+}
+
+impl SourceChangedEventArgs {
+    get_bool!(get_is_new_document);
+
+    pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2SourceChangedEventArgs> {
         &self.inner
     }
 }
