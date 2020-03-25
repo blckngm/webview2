@@ -169,6 +169,30 @@ pub struct SourceChangedEventArgs {
     inner: ComRc<dyn ICoreWebView2SourceChangedEventArgs>,
 }
 
+/// `ICoreWebView2ScriptDialogOpeningEventArgs`.
+#[derive(Clone)]
+pub struct ScriptDialogOpeningEventArgs {
+    inner: ComRc<dyn ICoreWebView2ScriptDialogOpeningEventArgs>,
+}
+
+/// `ICoreWebView2PermissionRequestedEventArgs`.
+#[derive(Clone)]
+pub struct PermissionRequestedEventArgs {
+    inner: ComRc<dyn ICoreWebView2PermissionRequestedEventArgs>,
+}
+
+/// `ICoreWebView2ProcessFailedEventArgs`.
+#[derive(Clone)]
+pub struct ProcessFailedEventArgs {
+    inner: ComRc<dyn ICoreWebView2ProcessFailedEventArgs>,
+}
+
+/// `ICoreWebView2NewWindowRequestedEventArgs`.
+#[derive(Clone)]
+pub struct NewWindowRequestedEventArgs {
+    inner: ComRc<dyn ICoreWebView2NewWindowRequestedEventArgs>,
+}
+
 /// A builder for calling the `CreateCoreWebView2EnvironmentWithDetails`
 /// function.
 #[derive(Default)]
@@ -413,7 +437,6 @@ macro_rules! add_event_handle_view {
     };
 }
 
-
 macro_rules! add_event_handle {
     ($method:ident, $arg_type:ident, $arg_args:ident, $arg_args_type:ident) => {
         pub fn $method(
@@ -578,13 +601,33 @@ impl WebView {
         ICoreWebView2NavigationCompletedEventArgsVTable
     );
     remove_event_handle!(remove_navigation_completed);
-    // TODO: add_frame_navigation_starting //eventHandler
+    add_event_handle!(
+        add_frame_navigation_starting,
+        ICoreWebView2NavigationStartingEventHandler,
+        NavigationStartingEventArgs,
+        ICoreWebView2NavigationStartingEventArgsVTable
+    );
     remove_event_handle!(remove_frame_navigation_starting);
-    // TODO: add_script_dialog_opening //eventHandler
+    add_event_handle!(
+        add_script_dialog_opening,
+        ICoreWebView2ScriptDialogOpeningEventHandler,
+        ScriptDialogOpeningEventArgs,
+        ICoreWebView2ScriptDialogOpeningEventArgsVTable
+    );
     remove_event_handle!(remove_script_dialog_opening);
-    // TODO: add_permission_requested //eventHandler
+    add_event_handle!(
+        add_permission_requested,
+        ICoreWebView2PermissionRequestedEventHandler,
+        PermissionRequestedEventArgs,
+        ICoreWebView2PermissionRequestedEventArgsVTable
+    );
     remove_event_handle!(remove_permission_requested);
-    // TODO: add_process_failed //eventHandler
+    add_event_handle!(
+        add_process_failed,
+        ICoreWebView2ProcessFailedEventHandler,
+        ProcessFailedEventArgs,
+        ICoreWebView2ProcessFailedEventArgsVTable
+    );
     remove_event_handle!(remove_process_failed);
     // Don't take an `Option<impl FnOnce>`:
     // https://users.rust-lang.org/t/solved-how-to-pass-none-to-a-function-when-an-option-closure-is-expected/10956/8
@@ -680,7 +723,12 @@ impl WebView {
     call!(go_forward);
     // TODO: get_dev_tools_protocol_event_receiver
     call!(stop);
-    // TODO: add_new_window_requested //eventHandler
+    add_event_handle!(
+        add_new_window_requested,
+        ICoreWebView2NewWindowRequestedEventHandler,
+        NewWindowRequestedEventArgs,
+        ICoreWebView2NewWindowRequestedEventArgsVTable
+    );
     remove_event_handle!(remove_new_window_requested);
     get_string!(get_document_title);
     // TODO: add_remote_object ??
@@ -762,9 +810,9 @@ impl WebMessageReceivedEventArgs {
 }
 
 impl WebResourceRequest {
-    // TODO: get_uri //LPWSTR
+    get_string!(get_uri);
     // TODO: put_uri //LPCWSTR
-    // TODO: get_method //LPWSTR
+    get_string!(get_method);
     // TODO: put_method //LPCWSTR
     // TODO: get_content //IStreamVTable
     // TODO: put_content //IStreamVTable
@@ -781,7 +829,7 @@ impl WebResourceResponse {
     // TODO: get_headers //ICoreWebView2HttpResponseHeadersVTable
     // TODO: get_status_code //i32
     // TODO: put_status_code //i32
-    // TODO: get_reason_phrase //LPWSTR
+    get_string!(get_reason_phrase);
     // TODO: put_reason_phrase //LPCWSTR
 
     pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2WebResourceResponse> {
@@ -829,6 +877,56 @@ impl SourceChangedEventArgs {
     get_bool!(get_is_new_document);
 
     pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2SourceChangedEventArgs> {
+        &self.inner
+    }
+}
+
+impl ScriptDialogOpeningEventArgs {
+    get_string!(get_uri);
+    // TODO: get_kind //CORE_WEBVIEW2_SCRIPT_DIALOG_KIND
+    get_string!(get_message);
+    call!(accept);
+    get_string!(get_default_text);
+    get_string!(get_result_text);
+    // TODO: put_result_text //LPCWSTR
+    // TODO: get_deferral //ICoreWebView2DeferralVTable
+
+    pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2ScriptDialogOpeningEventArgs> {
+        &self.inner
+    }
+}
+
+impl PermissionRequestedEventArgs {
+    get_string!(get_uri);
+    // TODO: get_permission_kind //CORE_WEBVIEW2_PERMISSION_KIND
+    get_bool!(get_is_user_initiated);
+    // TODO: get_state //CORE_WEBVIEW2_PERMISSION_STATE
+    // TODO: put_state //CORE_WEBVIEW2_PERMISSION_STATE
+    // TODO: get_deferral //ICoreWebView2DeferralVTable
+
+    pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2PermissionRequestedEventArgs> {
+        &self.inner
+    }
+}
+
+impl ProcessFailedEventArgs {
+    // TODO: get_process_failed_kind //CORE_WEBVIEW2_PROCESS_FAILED_KIND
+
+    pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2ProcessFailedEventArgs> {
+        &self.inner
+    }
+}
+
+impl NewWindowRequestedEventArgs {
+    get_string!(get_uri);
+    // TODO: put_new_window //ICoreWebView2VTable
+    // TODO: get_new_window //ICoreWebView2VTable
+    put_bool!(put_handled);
+    get_bool!(get_handled);
+    get_bool!(get_is_user_initiated);
+    // TODO: get_deferral //ICoreWebView2DeferralVTable
+
+    pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2NewWindowRequestedEventArgs> {
         &self.inner
     }
 }
