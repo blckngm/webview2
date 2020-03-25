@@ -273,6 +273,48 @@ impl<'a> EnvironmentBuilder<'a> {
     }
 }
 
+macro_rules! get_bool {
+    ($get_method:ident) => {
+        pub fn $get_method(&self) -> Result<bool> {
+            let mut enabled: BOOL = 0;
+            check_hresult(unsafe { self.inner.$get_method(&mut enabled) })?;
+            Ok(enabled != 0)
+        }
+    };
+}
+
+macro_rules! put_bool {
+    ($put_method:ident) => {
+        pub fn $put_method(&self, enabled: bool) -> Result<()> {
+            let enabled = if enabled { 1 } else { 0 };
+            check_hresult(unsafe { self.inner.$put_method(enabled) })
+        }
+    };
+}
+
+macro_rules! get_string {
+    ($get_string_method:ident) => {
+        pub fn $get_string_method(&self) -> Result<String> {
+            let mut result: LPWSTR = ptr::null_mut();
+            check_hresult(unsafe { self.inner.$get_string_method(&mut result) })?;
+            let result1 = unsafe { WideCStr::from_ptr_str(result) };
+            let result1 = result1.to_string().map_err(|_| Error { hresult: E_FAIL });
+            unsafe {
+                CoTaskMemFree(result as _);
+            }
+            result1
+        }
+    }
+}
+
+macro_rules! call {
+    ($method:ident) => {
+        pub fn $method(&self) -> Result<()> {
+            check_hresult(unsafe { self.inner.$method() })
+        }
+    };
+}
+
 impl Environment {
     pub fn create_host(
         &self,
@@ -338,16 +380,7 @@ impl WebView {
             inner: unsafe { add_ref_to_rc(ppv) },
         })
     }
-    pub fn get_uri(&self) -> Result<String> {
-        let mut uri: LPWSTR = ptr::null_mut();
-        check_hresult(unsafe { self.inner.get_source(&mut uri) })?;
-        let uri1 = unsafe { WideCStr::from_ptr_str(uri) };
-        let uri1 = uri1.to_string().map_err(|_| Error { hresult: E_FAIL });
-        unsafe {
-            CoTaskMemFree(uri as _);
-        }
-        uri1
-    }
+    get_string!(get_source);
     pub fn navigate(&self, uri: &str) -> Result<()> {
         let uri = WideCString::from_str(uri)?;
         check_hresult(unsafe { self.inner.navigate(uri.as_ptr()) })
@@ -458,69 +491,19 @@ impl WebView {
     pub fn remove_web_message_received(&self, token: EventRegistrationToken) -> Result<()> {
         check_hresult(unsafe { self.inner.remove_web_message_received(token) })
     }
-    pub fn open_dev_tools_window(&self) -> Result<()> {
-        check_hresult(unsafe { self.inner.open_dev_tools_window() })
-    }
-    pub fn reload(&self) -> Result<()> {
-        check_hresult(unsafe { self.inner.reload() })
-    }
-    pub fn stop(&self) -> Result<()> {
-        check_hresult(unsafe { self.inner.stop() })
-    }
-    pub fn go_back(&self) -> Result<()> {
-        check_hresult(unsafe { self.inner.go_back() })
-    }
-    pub fn go_forward(&self) -> Result<()> {
-        check_hresult(unsafe { self.inner.go_forward() })
-    }
-    pub fn get_can_go_back(&self) -> Result<bool> {
-        let mut canGoBack: BOOL = 0;
-        check_hresult(unsafe { self.inner.get_can_go_back(&mut canGoBack) })?;
-        Ok(canGoBack != 0)
-    }
-    pub fn get_can_go_forward(&self) -> Result<bool> {
-        let mut canGoForward: BOOL = 0;
-        check_hresult(unsafe { self.inner.get_can_go_forward(&mut canGoForward) })?;
-        Ok(canGoForward != 0)
-    }
-    pub fn get_contains_full_screen_element(&self) -> Result<bool> {
-        let mut containsFullScreenElement: BOOL = 0;
-        check_hresult(unsafe { self.inner.get_contains_full_screen_element(&mut containsFullScreenElement) })?;
-        Ok(containsFullScreenElement != 0)
-    }
-    pub fn get_document_title(&self) -> Result<String> {
-        let mut title: LPWSTR = ptr::null_mut();
-        check_hresult(unsafe { self.inner.get_document_title(&mut title) })?;
-        let title1 = unsafe { WideCStr::from_ptr_str(title) };
-        let title1 = title1.to_string().map_err(|_| Error { hresult: E_FAIL });
-        unsafe {
-            CoTaskMemFree(title as _);
-        }
-        title1
-    }
+    call!(open_dev_tools_window);
+    call!(reload);
+    call!(stop);
+    call!(go_back);
+    call!(go_forward);
+    get_bool!(get_can_go_back);
+    get_bool!(get_can_go_forward);
+    get_bool!(get_contains_full_screen_element);
+    get_string!(get_document_title);
 
     pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2> {
         &self.inner
     }
-}
-
-macro_rules! get_bool {
-    ($get_method:ident) => {
-        pub fn $get_method(&self) -> Result<bool> {
-            let mut enabled: BOOL = 0;
-            check_hresult(unsafe { self.inner.$get_method(&mut enabled) })?;
-            Ok(enabled != 0)
-        }
-    };
-}
-
-macro_rules! put_bool {
-    ($put_method:ident) => {
-        pub fn $put_method(&self, enabled: bool) -> Result<()> {
-            let enabled = if enabled { 1 } else { 0 };
-            check_hresult(unsafe { self.inner.$put_method(enabled) })
-        }
-    };
 }
 
 impl Settings {
@@ -554,16 +537,8 @@ impl Settings {
 }
 
 impl WebMessageReceivedEventArgs {
-    pub fn get_web_message_as_string(&self) -> Result<String> {
-        let mut message: LPWSTR = ptr::null_mut();
-        check_hresult(unsafe { self.inner.try_get_web_message_as_string(&mut message) })?;
-        let message1 = unsafe { WideCStr::from_ptr_str(message) };
-        let message1 = message1.to_string().map_err(|_| Error { hresult: E_FAIL });
-        unsafe {
-            CoTaskMemFree(message as _);
-        }
-        message1
-    }
+    get_string!(try_get_web_message_as_string);
+    get_string!(get_web_message_as_json);
 
     pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2WebMessageReceivedEventArgs> {
         &self.inner
