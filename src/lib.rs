@@ -373,6 +373,15 @@ macro_rules! get_string {
     }
 }
 
+macro_rules! put_string {
+    ($put_string_method:ident) => {
+        pub fn $put_string_method(&self, message_string: &str) -> Result<()> {
+            let message = WideCString::from_str(message_string)?;
+            check_hresult(unsafe { self.inner.$put_string_method(message.as_ptr()) })
+        }
+    }
+}
+
 macro_rules! call {
     ($method:ident) => {
         pub fn $method(&self) -> Result<()> {
@@ -534,9 +543,7 @@ impl Host {
     remove_event_handle!(remove_accelerator_key_pressed);
     // TODO: get_parent_window
     // TODO: put_parent_window
-    pub fn notify_parent_window_position_changed(&self) -> Result<()> {
-        check_hresult(unsafe { self.inner.notify_parent_window_position_changed() })
-    }
+    call!(notify_parent_window_position_changed);
     call!(close);
     pub fn get_webview(&self) -> Result<WebView> {
         let mut ppv: *mut *mut ICoreWebView2VTable = ptr::null_mut();
@@ -560,14 +567,8 @@ impl WebView {
         })
     }
     get_string!(get_source);
-    pub fn navigate(&self, uri: &str) -> Result<()> {
-        let uri = WideCString::from_str(uri)?;
-        check_hresult(unsafe { self.inner.navigate(uri.as_ptr()) })
-    }
-    pub fn navigate_to_string(&self, html_content: &str) -> Result<()> {
-        let html_content = WideCString::from_str(html_content)?;
-        check_hresult(unsafe { self.inner.navigate_to_string(html_content.as_ptr()) })
-    }
+    put_string!(navigate);
+    put_string!(navigate_to_string);
     add_event_handle!(
         add_navigation_starting,
         ICoreWebView2NavigationStartingEventHandler,
@@ -700,14 +701,8 @@ impl WebView {
     remove_event_handle!(remove_document_title_changed);
     // TODO: capture_preview
     call!(reload);
-    pub fn post_web_message_as_json(&self, web_message_as_json: &str) -> Result<()> {
-        let message = WideCString::from_str(web_message_as_json)?;
-        check_hresult(unsafe { self.inner.post_web_message_as_json(message.as_ptr()) })
-    }
-    pub fn post_web_message_as_string(&self, web_message_as_string: &str) -> Result<()> {
-        let message = WideCString::from_str(web_message_as_string)?;
-        check_hresult(unsafe { self.inner.post_web_message_as_string(message.as_ptr()) })
-    }
+    put_string!(post_web_message_as_json);
+    put_string!(post_web_message_as_string);
     add_event_handle!(
         add_web_message_received,
         ICoreWebView2WebMessageReceivedEventHandler,
@@ -811,9 +806,9 @@ impl WebMessageReceivedEventArgs {
 
 impl WebResourceRequest {
     get_string!(get_uri);
-    // TODO: put_uri //LPCWSTR
+    put_string!(put_uri);
     get_string!(get_method);
-    // TODO: put_method //LPCWSTR
+    put_string!(put_method);
     // TODO: get_content //IStreamVTable
     // TODO: put_content //IStreamVTable
     // TODO: get_headers //ICoreWebView2HttpRequestHeadersVTable
@@ -830,7 +825,7 @@ impl WebResourceResponse {
     // TODO: get_status_code //i32
     // TODO: put_status_code //i32
     get_string!(get_reason_phrase);
-    // TODO: put_reason_phrase //LPCWSTR
+    put_string!(put_reason_phrase);
 
     pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2WebResourceResponse> {
         &self.inner
@@ -860,7 +855,7 @@ impl NavigationCompletedEventArgs {
 }
 
 impl NavigationStartingEventArgs {
-    // TODO: get_uri //LPWSTR
+    get_string!(get_uri);
     get_bool!(get_is_user_initiated);
     get_bool!(get_is_redirected);
     // TODO: get_request_headers //ICoreWebView2HttpRequestHeadersVTable
@@ -888,7 +883,7 @@ impl ScriptDialogOpeningEventArgs {
     call!(accept);
     get_string!(get_default_text);
     get_string!(get_result_text);
-    // TODO: put_result_text //LPCWSTR
+    put_string!(put_result_text);
     // TODO: get_deferral //ICoreWebView2DeferralVTable
 
     pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2ScriptDialogOpeningEventArgs> {
