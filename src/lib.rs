@@ -133,6 +133,30 @@ pub struct WebMessageReceivedEventArgs {
     inner: ComRc<dyn ICoreWebView2WebMessageReceivedEventArgs>,
 }
 
+/// `ICoreWebView2HttpHeadersCollectionIterator`.
+#[derive(Clone)]
+pub struct HttpHeadersCollectionIterator {
+    inner: ComRc<dyn ICoreWebView2HttpHeadersCollectionIterator>,
+}
+
+/// `ICoreWebView2HttpRequestHeaders`.
+#[derive(Clone)]
+pub struct HttpRequestHeaders {
+    inner: ComRc<dyn ICoreWebView2HttpRequestHeaders>,
+}
+
+/// `ICoreWebView2HttpResponseHeaders`.
+#[derive(Clone)]
+pub struct HttpResponseHeaders {
+    inner: ComRc<dyn ICoreWebView2HttpResponseHeaders>,
+}
+
+/// `ICoreWebView2Deferral`.
+#[derive(Clone)]
+pub struct Deferral {
+    inner: ComRc<dyn ICoreWebView2Deferral>,
+}
+
 /// `ICoreWebView2WebResourceRequest`.
 #[derive(Clone)]
 pub struct WebResourceRequest {
@@ -521,7 +545,10 @@ impl Host {
     }
     // TODO: get_zoom_factor
     // TODO: put_zoom_factor
-    // TODO: add_zoom_factor_changed //eventHandler
+    add_event_handle_host!(
+        add_zoom_factor_changed,
+        ICoreWebView2ZoomFactorChangedEventHandler
+    );
     remove_event_handle!(remove_zoom_factor_changed);
     // TODO: set_bounds_and_zoom_factor
     pub fn move_focus(&self, reason: MoveFocusReason) -> Result<()> {
@@ -529,15 +556,9 @@ impl Host {
     }
     // TODO: add_move_focus_requested //eventHandler
     remove_event_handle!(remove_move_focus_requested);
-    add_event_handle_host!(
-        add_got_focus,
-        ICoreWebView2FocusChangedEventHandler
-    );
+    add_event_handle_host!(add_got_focus, ICoreWebView2FocusChangedEventHandler);
     remove_event_handle!(remove_got_focus);
-    add_event_handle_host!(
-        add_lost_focus,
-        ICoreWebView2FocusChangedEventHandler
-    );
+    add_event_handle_host!(add_lost_focus, ICoreWebView2FocusChangedEventHandler);
     remove_event_handle!(remove_lost_focus);
     // TODO: add_accelerator_key_pressed //eventHandler
     remove_event_handle!(remove_accelerator_key_pressed);
@@ -590,10 +611,7 @@ impl WebView {
         ICoreWebView2SourceChangedEventArgsVTable
     );
     remove_event_handle!(remove_source_changed);
-    add_event_handle_view!(
-        add_history_changed,
-        ICoreWebView2HistoryChangedEventHandler
-    );
+    add_event_handle_view!(add_history_changed, ICoreWebView2HistoryChangedEventHandler);
     remove_event_handle!(remove_history_changed);
     add_event_handle!(
         add_navigation_completed,
@@ -804,6 +822,49 @@ impl WebMessageReceivedEventArgs {
     }
 }
 
+impl HttpHeadersCollectionIterator {
+    // TODO: get_current_header //LPWSTR LPWSTR
+    get_bool!(get_has_current_header);
+    get_bool!(move_next);
+
+    pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2HttpHeadersCollectionIterator> {
+        &self.inner
+    }
+}
+
+impl HttpRequestHeaders {
+    // TODO: get_header //LPCWSTR LPWSTR
+    // TODO: get_headers //LPCWSTR HttpHeadersCollectionIterator
+    // TODO: contains //LPCWSTR BOOL
+    // TODO: set_header //LPCWSTR LPCWSTR
+    // TODO: remove_header //LPCWSTR
+    // TODO: get_iterator //HttpHeadersCollectionIterator
+
+    pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2HttpRequestHeaders> {
+        &self.inner
+    }
+}
+
+impl HttpResponseHeaders {
+    // TODO: append_header //LPCWSTR LPCWSTR
+    // TODO: contains //LPCWSTR BOOL
+    // TODO: get_header //LPCWSTR LPWSTR
+    // TODO: get_headers //HttpHeadersCollectionIterator
+    // TODO: get_iterator //HttpHeadersCollectionIterator
+
+    pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2HttpResponseHeaders> {
+        &self.inner
+    }
+}
+
+impl Deferral {
+    call!(complete);
+
+    pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2Deferral> {
+        &self.inner
+    }
+}
+
 impl WebResourceRequest {
     get_string!(get_uri);
     put_string!(put_uri);
@@ -811,7 +872,7 @@ impl WebResourceRequest {
     put_string!(put_method);
     // TODO: get_content //IStreamVTable
     // TODO: put_content //IStreamVTable
-    // TODO: get_headers //ICoreWebView2HttpRequestHeadersVTable
+    // TODO: get_headers //HttpRequestHeaders
 
     pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2WebResourceRequest> {
         &self.inner
@@ -821,7 +882,7 @@ impl WebResourceRequest {
 impl WebResourceResponse {
     // TODO: get_content //IStreamVTable
     // TODO: put_content //IStreamVTable
-    // TODO: get_headers //ICoreWebView2HttpResponseHeadersVTable
+    // TODO: get_headers //HttpResponseHeaders
     // TODO: get_status_code //i32
     // TODO: put_status_code //i32
     get_string!(get_reason_phrase);
@@ -833,10 +894,10 @@ impl WebResourceResponse {
 }
 
 impl WebResourceRequestedEventArgs {
-    // TODO: get_request //ICoreWebView2WebResourceRequestVTable
-    // TODO: get_response //ICoreWebView2WebResourceResponseVTable
-    // TODO: put_response //ICoreWebView2WebResourceResponseVTable
-    // TODO: get_deferral //ICoreWebView2DeferralVTable
+    // TODO: get_request  //WebResourceRequest
+    // TODO: get_response //WebResourceResponse
+    // TODO: put_response //WebResourceResponse
+    // TODO: get_deferral //Deferral
     // TODO: get_resource_context //CORE_WEBVIEW2_WEB_RESOURCE_CONTEXT
 
     pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2WebResourceRequestedEventArgs> {
@@ -858,7 +919,7 @@ impl NavigationStartingEventArgs {
     get_string!(get_uri);
     get_bool!(get_is_user_initiated);
     get_bool!(get_is_redirected);
-    // TODO: get_request_headers //ICoreWebView2HttpRequestHeadersVTable
+    // TODO: get_request_headers //HttpRequestHeaders
     get_bool!(get_cancel);
     put_bool!(put_cancel);
     // TODO: get_navigation_id //UINT64
@@ -884,7 +945,7 @@ impl ScriptDialogOpeningEventArgs {
     get_string!(get_default_text);
     get_string!(get_result_text);
     put_string!(put_result_text);
-    // TODO: get_deferral //ICoreWebView2DeferralVTable
+    // TODO: get_deferral //Deferral
 
     pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2ScriptDialogOpeningEventArgs> {
         &self.inner
@@ -897,7 +958,7 @@ impl PermissionRequestedEventArgs {
     get_bool!(get_is_user_initiated);
     // TODO: get_state //CORE_WEBVIEW2_PERMISSION_STATE
     // TODO: put_state //CORE_WEBVIEW2_PERMISSION_STATE
-    // TODO: get_deferral //ICoreWebView2DeferralVTable
+    // TODO: get_deferral //Deferral
 
     pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2PermissionRequestedEventArgs> {
         &self.inner
@@ -919,7 +980,7 @@ impl NewWindowRequestedEventArgs {
     put_bool!(put_handled);
     get_bool!(get_handled);
     get_bool!(get_is_user_initiated);
-    // TODO: get_deferral //ICoreWebView2DeferralVTable
+    // TODO: get_deferral //Deferral
 
     pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2NewWindowRequestedEventArgs> {
         &self.inner
