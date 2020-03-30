@@ -414,7 +414,7 @@ macro_rules! call {
     };
 }
 
-macro_rules! add_event_handle_host {
+macro_rules! add_event_handler_host {
     ($method:ident, $arg_type:ident) => {
         pub fn $method(
             &self,
@@ -442,7 +442,7 @@ macro_rules! add_event_handle_host {
     };
 }
 
-macro_rules! add_event_handle_view {
+macro_rules! add_event_handler_view {
     ($method:ident, $arg_type:ident) => {
         pub fn $method(
             &self,
@@ -470,7 +470,7 @@ macro_rules! add_event_handle_view {
     };
 }
 
-macro_rules! add_event_handle {
+macro_rules! add_event_handler {
     ($method:ident, $arg_type:ident, $arg_args:ident, $arg_args_type:ident) => {
         pub fn $method(
             &self,
@@ -501,7 +501,7 @@ macro_rules! add_event_handle {
     };
 }
 
-macro_rules! remove_event_handle {
+macro_rules! remove_event_handler {
     ($method:ident) => {
         pub fn $method(&self, token: EventRegistrationToken) -> Result<()> {
             check_hresult(unsafe { self.inner.$method(token) })
@@ -545,23 +545,23 @@ impl Host {
     }
     // TODO: get_zoom_factor
     // TODO: put_zoom_factor
-    add_event_handle_host!(
+    add_event_handler_host!(
         add_zoom_factor_changed,
         ICoreWebView2ZoomFactorChangedEventHandler
     );
-    remove_event_handle!(remove_zoom_factor_changed);
+    remove_event_handler!(remove_zoom_factor_changed);
     // TODO: set_bounds_and_zoom_factor
     pub fn move_focus(&self, reason: MoveFocusReason) -> Result<()> {
         check_hresult(unsafe { self.inner.move_focus(reason) })
     }
     // TODO: add_move_focus_requested //eventHandler
-    remove_event_handle!(remove_move_focus_requested);
-    add_event_handle_host!(add_got_focus, ICoreWebView2FocusChangedEventHandler);
-    remove_event_handle!(remove_got_focus);
-    add_event_handle_host!(add_lost_focus, ICoreWebView2FocusChangedEventHandler);
-    remove_event_handle!(remove_lost_focus);
+    remove_event_handler!(remove_move_focus_requested);
+    add_event_handler_host!(add_got_focus, ICoreWebView2FocusChangedEventHandler);
+    remove_event_handler!(remove_got_focus);
+    add_event_handler_host!(add_lost_focus, ICoreWebView2FocusChangedEventHandler);
+    remove_event_handler!(remove_lost_focus);
     // TODO: add_accelerator_key_pressed //eventHandler
-    remove_event_handle!(remove_accelerator_key_pressed);
+    remove_event_handler!(remove_accelerator_key_pressed);
     // TODO: get_parent_window
     // TODO: put_parent_window
     call!(notify_parent_window_position_changed);
@@ -590,64 +590,64 @@ impl WebView {
     get_string!(get_source);
     put_string!(navigate);
     put_string!(navigate_to_string);
-    add_event_handle!(
+    add_event_handler!(
         add_navigation_starting,
         ICoreWebView2NavigationStartingEventHandler,
         NavigationStartingEventArgs,
         ICoreWebView2NavigationStartingEventArgsVTable
     );
-    remove_event_handle!(remove_navigation_starting);
-    add_event_handle!(
+    remove_event_handler!(remove_navigation_starting);
+    add_event_handler!(
         add_content_loading,
         ICoreWebView2ContentLoadingEventHandler,
         ContentLoadingEventArgs,
         ICoreWebView2ContentLoadingEventArgsVTable
     );
-    remove_event_handle!(remove_content_loading);
-    add_event_handle!(
+    remove_event_handler!(remove_content_loading);
+    add_event_handler!(
         add_source_changed,
         ICoreWebView2SourceChangedEventHandler,
         SourceChangedEventArgs,
         ICoreWebView2SourceChangedEventArgsVTable
     );
-    remove_event_handle!(remove_source_changed);
-    add_event_handle_view!(add_history_changed, ICoreWebView2HistoryChangedEventHandler);
-    remove_event_handle!(remove_history_changed);
-    add_event_handle!(
+    remove_event_handler!(remove_source_changed);
+    add_event_handler_view!(add_history_changed, ICoreWebView2HistoryChangedEventHandler);
+    remove_event_handler!(remove_history_changed);
+    add_event_handler!(
         add_navigation_completed,
         ICoreWebView2NavigationCompletedEventHandler,
         NavigationCompletedEventArgs,
         ICoreWebView2NavigationCompletedEventArgsVTable
     );
-    remove_event_handle!(remove_navigation_completed);
-    add_event_handle!(
+    remove_event_handler!(remove_navigation_completed);
+    add_event_handler!(
         add_frame_navigation_starting,
         ICoreWebView2NavigationStartingEventHandler,
         NavigationStartingEventArgs,
         ICoreWebView2NavigationStartingEventArgsVTable
     );
-    remove_event_handle!(remove_frame_navigation_starting);
-    add_event_handle!(
+    remove_event_handler!(remove_frame_navigation_starting);
+    add_event_handler!(
         add_script_dialog_opening,
         ICoreWebView2ScriptDialogOpeningEventHandler,
         ScriptDialogOpeningEventArgs,
         ICoreWebView2ScriptDialogOpeningEventArgsVTable
     );
-    remove_event_handle!(remove_script_dialog_opening);
-    add_event_handle!(
+    remove_event_handler!(remove_script_dialog_opening);
+    add_event_handler!(
         add_permission_requested,
         ICoreWebView2PermissionRequestedEventHandler,
         PermissionRequestedEventArgs,
         ICoreWebView2PermissionRequestedEventArgsVTable
     );
-    remove_event_handle!(remove_permission_requested);
-    add_event_handle!(
+    remove_event_handler!(remove_permission_requested);
+    add_event_handler!(
         add_process_failed,
         ICoreWebView2ProcessFailedEventHandler,
         ProcessFailedEventArgs,
         ICoreWebView2ProcessFailedEventArgsVTable
     );
-    remove_event_handle!(remove_process_failed);
+    remove_event_handler!(remove_process_failed);
     // Don't take an `Option<impl FnOnce>`:
     // https://users.rust-lang.org/t/solved-how-to-pass-none-to-a-function-when-an-option-closure-is-expected/10956/8
     pub fn add_script_to_execute_on_document_created(
@@ -712,22 +712,22 @@ impl WebView {
                 .execute_script(script.as_ptr(), callback.as_raw())
         })
     }
-    add_event_handle_view!(
+    add_event_handler_view!(
         add_document_title_changed,
         ICoreWebView2DocumentTitleChangedEventHandler
     );
-    remove_event_handle!(remove_document_title_changed);
+    remove_event_handler!(remove_document_title_changed);
     // TODO: capture_preview
     call!(reload);
     put_string!(post_web_message_as_json);
     put_string!(post_web_message_as_string);
-    add_event_handle!(
+    add_event_handler!(
         add_web_message_received,
         ICoreWebView2WebMessageReceivedEventHandler,
         WebMessageReceivedEventArgs,
         ICoreWebView2WebMessageReceivedEventArgsVTable
     );
-    remove_event_handle!(remove_web_message_received);
+    remove_event_handler!(remove_web_message_received);
     // TODO: call_dev_tools_protocol_method
     // TODO: get_browser_process_id
     get_bool!(get_can_go_back);
@@ -736,37 +736,37 @@ impl WebView {
     call!(go_forward);
     // TODO: get_dev_tools_protocol_event_receiver
     call!(stop);
-    add_event_handle!(
+    add_event_handler!(
         add_new_window_requested,
         ICoreWebView2NewWindowRequestedEventHandler,
         NewWindowRequestedEventArgs,
         ICoreWebView2NewWindowRequestedEventArgsVTable
     );
-    remove_event_handle!(remove_new_window_requested);
+    remove_event_handler!(remove_new_window_requested);
     get_string!(get_document_title);
     // TODO: add_remote_object ??
     // TODO: remove_remote_object ??
     call!(open_dev_tools_window);
-    add_event_handle_view!(
+    add_event_handler_view!(
         add_contains_full_screen_element_changed,
         ICoreWebView2ContainsFullScreenElementChangedEventHandler
     );
-    remove_event_handle!(remove_contains_full_screen_element_changed);
+    remove_event_handler!(remove_contains_full_screen_element_changed);
     get_bool!(get_contains_full_screen_element);
-    add_event_handle!(
+    add_event_handler!(
         add_web_resource_requested,
         ICoreWebView2WebResourceRequestedEventHandler,
         WebResourceRequestedEventArgs,
         ICoreWebView2WebResourceRequestedEventArgsVTable
     );
-    remove_event_handle!(remove_web_resource_requested);
+    remove_event_handler!(remove_web_resource_requested);
     // TODO: add_web_resource_requested_filter
     // TODO: remove_web_resource_requested_filter
-    add_event_handle_view!(
+    add_event_handler_view!(
         add_window_close_requested,
         ICoreWebView2WindowCloseRequestedEventHandler
     );
-    remove_event_handle!(remove_window_close_requested);
+    remove_event_handler!(remove_window_close_requested);
 
     pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2> {
         &self.inner
