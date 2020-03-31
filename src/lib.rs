@@ -381,6 +381,29 @@ macro_rules! put {
     };
 }
 
+macro_rules! get_interface {
+    ($get_method:ident, $T: ident, $VT: ident) => {
+        pub fn $get_method(&self) -> Result<$T> {
+            let mut ppv: MaybeUninit<*mut *mut $VT> = MaybeUninit::uninit();
+            check_hresult(unsafe { self.inner.$get_method(ppv.as_mut_ptr()) })?;
+            Ok(unsafe { $T {
+                inner: add_ref_to_rc(ppv.assume_init()),
+            } })
+        }
+    };
+}
+
+macro_rules! put_interface {
+    ($put_method:ident, $T: ident) => {
+        pub fn $put_method(&self, i: $T) -> Result<()> {
+            check_hresult(unsafe {
+                // Convert to `ComPtr` so that it is not automatically released.
+                self.inner.$put_method(ComPtr::from(i.inner).as_raw())
+            })
+        }
+    }
+}
+
 macro_rules! get_bool {
     ($get_method:ident) => {
         pub fn $get_method(&self) -> Result<bool> {
@@ -839,7 +862,29 @@ impl WebMessageReceivedEventArgs {
 }
 
 impl HttpHeadersCollectionIterator {
-    // TODO: get_current_header //LPWSTR LPWSTR
+    pub fn get_current_header(&self) -> Result<(String, String)> {
+        let mut name: MaybeUninit<LPWSTR> = MaybeUninit::uninit();
+        let mut value: MaybeUninit<LPWSTR> = MaybeUninit::uninit();
+        unsafe {
+            check_hresult(
+                self.inner
+                    .get_current_header(name.as_mut_ptr(), value.as_mut_ptr()),
+            )?;
+            let name = name.assume_init();
+            let value = value.assume_init();
+            let name1 = WideCStr::from_ptr_str(name)
+                .to_string()
+                .map_err(|_| Error::new(E_FAIL));
+            let value1 = WideCStr::from_ptr_str(value)
+                .to_string()
+                .map_err(|_| Error::new(E_FAIL));
+
+            CoTaskMemFree(name as _);
+            CoTaskMemFree(value as _);
+
+            Ok((name1?, value1?))
+        }
+    }
     get_bool!(get_has_current_header);
     get_bool!(move_next);
 
@@ -848,13 +893,38 @@ impl HttpHeadersCollectionIterator {
     }
 }
 
+impl Iterator for HttpHeadersCollectionIterator {
+    type Item = (String, String);
+
+    fn next(&mut self) -> Option<(String, String)> {
+        if self.get_has_current_header() != Ok(true) {
+            return None;
+        }
+        let v = self.get_current_header().ok();
+        let _ = self.move_next();
+        v
+    }
+}
+
 impl HttpRequestHeaders {
     // TODO: get_header //LPCWSTR LPWSTR
-    // TODO: get_headers //LPCWSTR HttpHeadersCollectionIterator
+    pub fn get_headers(&self, name: &str) -> Result<HttpHeadersCollectionIterator> {
+        let name = WideCString::from_str(name)?;
+        let mut iterator: *mut *mut ICoreWebView2HttpHeadersCollectionIteratorVTable =
+            ptr::null_mut();
+        check_hresult(unsafe { self.inner.get_headers(name.as_ptr(), &mut iterator) })?;
+        Ok(HttpHeadersCollectionIterator {
+            inner: unsafe { add_ref_to_rc(iterator) },
+        })
+    }
     // TODO: contains //LPCWSTR BOOL
     // TODO: set_header //LPCWSTR LPCWSTR
     put_string!(remove_header);
-    // TODO: get_iterator //HttpHeadersCollectionIterator
+    get_interface!(
+        get_iterator,
+        HttpHeadersCollectionIterator,
+        ICoreWebView2HttpHeadersCollectionIteratorVTable
+    );
 
     pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2HttpRequestHeaders> {
         &self.inner
@@ -865,8 +935,20 @@ impl HttpResponseHeaders {
     // TODO: append_header //LPCWSTR LPCWSTR
     // TODO: contains //LPCWSTR BOOL
     // TODO: get_header //LPCWSTR LPWSTR
-    // TODO: get_headers //HttpHeadersCollectionIterator
-    // TODO: get_iterator //HttpHeadersCollectionIterator
+    pub fn get_headers(&self, name: &str) -> Result<HttpHeadersCollectionIterator> {
+        let name = WideCString::from_str(name)?;
+        let mut iterator: *mut *mut ICoreWebView2HttpHeadersCollectionIteratorVTable =
+            ptr::null_mut();
+        check_hresult(unsafe { self.inner.get_headers(name.as_ptr(), &mut iterator) })?;
+        Ok(HttpHeadersCollectionIterator {
+            inner: unsafe { add_ref_to_rc(iterator) },
+        })
+    }
+    get_interface!(
+        get_iterator,
+        HttpHeadersCollectionIterator,
+        ICoreWebView2HttpHeadersCollectionIteratorVTable
+    );
 
     pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2HttpResponseHeaders> {
         &self.inner
@@ -888,7 +970,11 @@ impl WebResourceRequest {
     put_string!(put_method);
     // TODO: get_content //IStreamVTable
     // TODO: put_content //IStreamVTable
-    // TODO: get_headers //HttpRequestHeaders
+    get_interface!(
+        get_headers,
+        HttpRequestHeaders,
+        ICoreWebView2HttpRequestHeadersVTable
+    );
 
     pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2WebResourceRequest> {
         &self.inner
@@ -898,7 +984,11 @@ impl WebResourceRequest {
 impl WebResourceResponse {
     // TODO: get_content //IStreamVTable
     // TODO: put_content //IStreamVTable
-    // TODO: get_headers //HttpResponseHeaders
+    get_interface!(
+        get_headers,
+        HttpResponseHeaders,
+        ICoreWebView2HttpResponseHeadersVTable
+    );
     get!(get_status_code, i32);
     put!(put_status_code, status_code: i32);
     get_string!(get_reason_phrase);
@@ -910,10 +1000,18 @@ impl WebResourceResponse {
 }
 
 impl WebResourceRequestedEventArgs {
-    // TODO: get_request  //WebResourceRequest
-    // TODO: get_response //WebResourceResponse
-    // TODO: put_response //WebResourceResponse
-    // TODO: get_deferral //Deferral
+    get_interface!(
+        get_request,
+        WebResourceRequest,
+        ICoreWebView2WebResourceRequestVTable
+    );
+    get_interface!(
+        get_response,
+        WebResourceResponse,
+        ICoreWebView2WebResourceResponseVTable
+    );
+    put_interface!(put_response, WebResourceResponse);
+    get_interface!(get_deferral, Deferral, ICoreWebView2DeferralVTable);
     get!(get_resource_context, CORE_WEBVIEW2_WEB_RESOURCE_CONTEXT);
 
     pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2WebResourceRequestedEventArgs> {
@@ -935,7 +1033,11 @@ impl NavigationStartingEventArgs {
     get_string!(get_uri);
     get_bool!(get_is_user_initiated);
     get_bool!(get_is_redirected);
-    // TODO: get_request_headers //HttpRequestHeaders
+    get_interface!(
+        get_request_headers,
+        HttpRequestHeaders,
+        ICoreWebView2HttpRequestHeadersVTable
+    );
     get_bool!(get_cancel);
     put_bool!(put_cancel);
     get!(get_navigation_id, u64);
@@ -961,7 +1063,7 @@ impl ScriptDialogOpeningEventArgs {
     get_string!(get_default_text);
     get_string!(get_result_text);
     put_string!(put_result_text);
-    // TODO: get_deferral //Deferral
+    get_interface!(get_deferral, Deferral, ICoreWebView2DeferralVTable);
 
     pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2ScriptDialogOpeningEventArgs> {
         &self.inner
@@ -974,7 +1076,7 @@ impl PermissionRequestedEventArgs {
     get_bool!(get_is_user_initiated);
     get!(get_state, CORE_WEBVIEW2_PERMISSION_STATE);
     put!(put_state, state: CORE_WEBVIEW2_PERMISSION_STATE);
-    // TODO: get_deferral //Deferral
+    get_interface!(get_deferral, Deferral, ICoreWebView2DeferralVTable);
 
     pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2PermissionRequestedEventArgs> {
         &self.inner
@@ -991,12 +1093,12 @@ impl ProcessFailedEventArgs {
 
 impl NewWindowRequestedEventArgs {
     get_string!(get_uri);
-    // TODO: put_new_window //ICoreWebView2VTable
-    // TODO: get_new_window //ICoreWebView2VTable
+    put_interface!(put_new_window, WebView);
+    get_interface!(get_new_window, WebView, ICoreWebView2VTable);
     put_bool!(put_handled);
     get_bool!(get_handled);
     get_bool!(get_is_user_initiated);
-    // TODO: get_deferral //Deferral
+    get_interface!(get_deferral, Deferral, ICoreWebView2DeferralVTable);
 
     pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2NewWindowRequestedEventArgs> {
         &self.inner
