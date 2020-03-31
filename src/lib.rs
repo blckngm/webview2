@@ -338,9 +338,10 @@ impl<'a> EnvironmentBuilder<'a> {
         } = self;
         #[cfg(not(feature = "embed-dll"))]
         let create_fn: FnCreateCoreWebView2EnvironmentWithDetails = unsafe {
-            let dll_file_path = dll_file_path.unwrap_or_else(|| Path::new("WebView2Loader.dll"));
-            let dll_file_path_string = WideCString::from_os_str(dll_file_path)?;
-            let dll = LoadLibraryW(dll_file_path_string.as_ptr());
+            let dll_file_path = WideCString::from_os_str(
+                dll_file_path.unwrap_or_else(|| Path::new("WebView2Loader.dll"))
+            )?;
+            let dll = LoadLibraryW(dll_file_path.as_ptr());
             if dll.is_null() {
                 return Err(io::Error::last_os_error().into());
             }
