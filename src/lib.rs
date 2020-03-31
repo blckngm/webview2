@@ -34,7 +34,10 @@ use widestring::{NulError, WideCStr, WideCString};
 use winapi::shared::minwindef::*;
 use winapi::shared::ntdef::*;
 use winapi::shared::windef::*;
-use winapi::shared::winerror::{E_FAIL, E_INVALIDARG, HRESULT_FROM_WIN32, SUCCEEDED, S_OK};
+use winapi::shared::winerror::{
+    E_FAIL, E_INVALIDARG, FACILITY_WIN32, HRESULT_CODE, HRESULT_FROM_WIN32, MAKE_HRESULT,
+    SEVERITY_ERROR, SUCCEEDED, S_OK,
+};
 use winapi::um::combaseapi::CoTaskMemFree;
 use winapi::um::libloaderapi::{GetProcAddress, LoadLibraryW};
 
@@ -215,6 +218,16 @@ pub struct ProcessFailedEventArgs {
 #[derive(Clone)]
 pub struct NewWindowRequestedEventArgs {
     inner: ComRc<dyn ICoreWebView2NewWindowRequestedEventArgs>,
+}
+
+/// `IStream`.
+///
+/// # `Clone`
+///
+/// The clone implementation simply calls `AddRef`. It does not call `IStream::Clone`.
+#[derive(Clone)]
+pub struct Stream {
+    inner: ComRc<dyn IStream>,
 }
 
 /// A builder for calling the `CreateCoreWebView2EnvironmentWithDetails`
@@ -968,8 +981,8 @@ impl WebResourceRequest {
     put_string!(put_uri);
     get_string!(get_method);
     put_string!(put_method);
-    // TODO: get_content //IStreamVTable
-    // TODO: put_content //IStreamVTable
+    get_interface!(get_content, Stream, IStreamVTable);
+    put_interface!(put_content, Stream);
     get_interface!(
         get_headers,
         HttpRequestHeaders,
@@ -982,8 +995,8 @@ impl WebResourceRequest {
 }
 
 impl WebResourceResponse {
-    // TODO: get_content //IStreamVTable
-    // TODO: put_content //IStreamVTable
+    get_interface!(get_content, Stream, IStreamVTable);
+    put_interface!(put_content, Stream);
     get_interface!(
         get_headers,
         HttpResponseHeaders,
@@ -1105,6 +1118,74 @@ impl NewWindowRequestedEventArgs {
     }
 }
 
+// This function is not available from winapi yet.
+// FIXME: linking with GNU toolchain.
+#[link(name = "shlwapi")]
+extern "stdcall" {
+    fn SHCreateMemStream(p_init: *const u8, cb_init: UINT) -> *mut *mut IStreamVTable;
+}
+
+impl Stream {
+    /// Create a stream from a byte buffer. (`SHCreateMemStream`)
+    pub fn from_bytes(buf: &[u8]) -> Self {
+        let ppv = unsafe { SHCreateMemStream(buf.as_ptr(), buf.len() as _) };
+        assert!(!ppv.is_null());
+        Self {
+            // Do not need to add ref for this pointer.
+            inner: unsafe { ComRc::from_raw(ppv) },
+        }
+    }
+
+    /// Create a `Stream` from an owning raw pointer to an `IStream`.
+    ///
+    /// # Safety
+    ///
+    /// See `ComRc::from_raw`.
+    pub unsafe fn from_raw(ppv: *mut *mut IStreamVTable) -> Self {
+        Self {
+            inner: ComRc::from_raw(ppv),
+        }
+    }
+
+    pub fn as_raw(&self) -> &ComRc<dyn IStream> {
+        &self.inner
+    }
+}
+
+impl io::Read for Stream {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        let mut read_bytes = MaybeUninit::uninit();
+        check_hresult(unsafe {
+            self.inner.read(
+                buf.as_mut_ptr() as *mut _,
+                buf.len() as _,
+                read_bytes.as_mut_ptr(),
+            )
+        })
+        .map_err(|e| e.into_io_error())?;
+        Ok(unsafe { read_bytes.assume_init() } as _)
+    }
+}
+
+impl io::Write for Stream {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        let mut written_bytes = MaybeUninit::uninit();
+        check_hresult(unsafe {
+            self.inner.write(
+                buf.as_ptr() as *mut _,
+                buf.len() as _,
+                written_bytes.as_mut_ptr(),
+            )
+        })
+        .map_err(|e| e.into_io_error())?;
+        Ok(unsafe { written_bytes.assume_init() } as _)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
 #[doc(inline)]
 pub type MoveFocusReason = sys::CORE_WEBVIEW2_MOVE_FOCUS_REASON;
 
@@ -1149,6 +1230,16 @@ impl Error {
         Self { hresult }
     }
 
+    fn into_io_error(self) -> io::Error {
+        if (self.hresult & (0xffff_0000_u32 as i32))
+            == MAKE_HRESULT(SEVERITY_ERROR, FACILITY_WIN32, 0)
+        {
+            io::Error::from_raw_os_error(HRESULT_CODE(self.hresult))
+        } else {
+            io::Error::new(io::ErrorKind::Other, self)
+        }
+    }
+
     pub fn hresult(&self) -> HRESULT {
         self.hresult
     }
@@ -1168,5 +1259,19 @@ fn to_hresult<T>(r: Result<T>) -> HRESULT {
     match r {
         Ok(_) => S_OK,
         Err(Error { hresult }) => hresult,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Read;
+
+    #[test]
+    fn test_stream() {
+        let mut buf = Vec::new();
+        let mut stream = Stream::from_bytes(&[4u8; 1024]);
+        stream.read_to_end(&mut buf).unwrap();
+        assert_eq!(buf, &[4u8; 1024][..]);
     }
 }
