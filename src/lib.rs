@@ -121,10 +121,100 @@ pub struct Settings {
     inner: ComRc<dyn ICoreWebView2Settings>,
 }
 
+/// `ICoreWebView2ContentLoadingEventArgs`.
+#[derive(Clone)]
+pub struct ContentLoadingEventArgs {
+    inner: ComRc<dyn ICoreWebView2ContentLoadingEventArgs>,
+}
+
 /// `ICoreWebView2WebMessageReceivedEventArgs`.
 #[derive(Clone)]
 pub struct WebMessageReceivedEventArgs {
     inner: ComRc<dyn ICoreWebView2WebMessageReceivedEventArgs>,
+}
+
+/// `ICoreWebView2HttpHeadersCollectionIterator`.
+#[derive(Clone)]
+pub struct HttpHeadersCollectionIterator {
+    inner: ComRc<dyn ICoreWebView2HttpHeadersCollectionIterator>,
+}
+
+/// `ICoreWebView2HttpRequestHeaders`.
+#[derive(Clone)]
+pub struct HttpRequestHeaders {
+    inner: ComRc<dyn ICoreWebView2HttpRequestHeaders>,
+}
+
+/// `ICoreWebView2HttpResponseHeaders`.
+#[derive(Clone)]
+pub struct HttpResponseHeaders {
+    inner: ComRc<dyn ICoreWebView2HttpResponseHeaders>,
+}
+
+/// `ICoreWebView2Deferral`.
+#[derive(Clone)]
+pub struct Deferral {
+    inner: ComRc<dyn ICoreWebView2Deferral>,
+}
+
+/// `ICoreWebView2WebResourceRequest`.
+#[derive(Clone)]
+pub struct WebResourceRequest {
+    inner: ComRc<dyn ICoreWebView2WebResourceRequest>,
+}
+
+/// `ICoreWebView2WebResourceResponse`.
+#[derive(Clone)]
+pub struct WebResourceResponse {
+    inner: ComRc<dyn ICoreWebView2WebResourceResponse>,
+}
+
+/// `ICoreWebView2WebResourceRequestedEventArgs`.
+#[derive(Clone)]
+pub struct WebResourceRequestedEventArgs {
+    inner: ComRc<dyn ICoreWebView2WebResourceRequestedEventArgs>,
+}
+
+/// `ICoreWebView2NavigationCompletedEventArgs`.
+#[derive(Clone)]
+pub struct NavigationCompletedEventArgs {
+    inner: ComRc<dyn ICoreWebView2NavigationCompletedEventArgs>,
+}
+
+/// `ICoreWebView2NavigationStartingEventArgs`.
+#[derive(Clone)]
+pub struct NavigationStartingEventArgs {
+    inner: ComRc<dyn ICoreWebView2NavigationStartingEventArgs>,
+}
+
+/// `ICoreWebView2SourceChangedEventArgs`.
+#[derive(Clone)]
+pub struct SourceChangedEventArgs {
+    inner: ComRc<dyn ICoreWebView2SourceChangedEventArgs>,
+}
+
+/// `ICoreWebView2ScriptDialogOpeningEventArgs`.
+#[derive(Clone)]
+pub struct ScriptDialogOpeningEventArgs {
+    inner: ComRc<dyn ICoreWebView2ScriptDialogOpeningEventArgs>,
+}
+
+/// `ICoreWebView2PermissionRequestedEventArgs`.
+#[derive(Clone)]
+pub struct PermissionRequestedEventArgs {
+    inner: ComRc<dyn ICoreWebView2PermissionRequestedEventArgs>,
+}
+
+/// `ICoreWebView2ProcessFailedEventArgs`.
+#[derive(Clone)]
+pub struct ProcessFailedEventArgs {
+    inner: ComRc<dyn ICoreWebView2ProcessFailedEventArgs>,
+}
+
+/// `ICoreWebView2NewWindowRequestedEventArgs`.
+#[derive(Clone)]
+pub struct NewWindowRequestedEventArgs {
+    inner: ComRc<dyn ICoreWebView2NewWindowRequestedEventArgs>,
 }
 
 /// A builder for calling the `CreateCoreWebView2EnvironmentWithDetails`
@@ -307,10 +397,114 @@ macro_rules! get_string {
     }
 }
 
+macro_rules! put_string {
+    ($put_string_method:ident) => {
+        pub fn $put_string_method(&self, message_string: &str) -> Result<()> {
+            let message = WideCString::from_str(message_string)?;
+            check_hresult(unsafe { self.inner.$put_string_method(message.as_ptr()) })
+        }
+    }
+}
+
 macro_rules! call {
     ($method:ident) => {
         pub fn $method(&self) -> Result<()> {
             check_hresult(unsafe { self.inner.$method() })
+        }
+    };
+}
+
+macro_rules! add_event_handler_host {
+    ($method:ident, $arg_type:ident) => {
+        pub fn $method(
+            &self,
+            event_handler: impl Fn(Host) -> Result<()> + 'static,
+        ) -> Result<EventRegistrationToken> {
+            let mut token: EventRegistrationToken = unsafe { mem::zeroed() };
+
+            let event_handler = callback!(
+                $arg_type,
+                move |sender: *mut *mut ICoreWebView2HostVTable,
+                    _args: *mut *mut com::interfaces::iunknown::IUnknownVTable|
+                    -> HRESULT {
+                    let sender = Host {
+                        inner: unsafe { add_ref_to_rc(sender) },
+                    };
+                    to_hresult(event_handler(sender))
+                }
+            );
+
+            check_hresult(unsafe {
+                self.inner.$method(event_handler.as_raw(), &mut token)
+            })?;
+            Ok(token)
+        }
+    };
+}
+
+macro_rules! add_event_handler_view {
+    ($method:ident, $arg_type:ident) => {
+        pub fn $method(
+            &self,
+            event_handler: impl Fn(WebView) -> Result<()> + 'static,
+        ) -> Result<EventRegistrationToken> {
+            let mut token: EventRegistrationToken = unsafe { mem::zeroed() };
+
+            let event_handler = callback!(
+                $arg_type,
+                move |sender: *mut *mut ICoreWebView2VTable,
+                    _args: *mut *mut com::interfaces::iunknown::IUnknownVTable|
+                    -> HRESULT {
+                    let sender = WebView {
+                        inner: unsafe { add_ref_to_rc(sender) },
+                    };
+                    to_hresult(event_handler(sender))
+                }
+            );
+
+            check_hresult(unsafe {
+                self.inner.$method(event_handler.as_raw(), &mut token)
+            })?;
+            Ok(token)
+        }
+    };
+}
+
+macro_rules! add_event_handler {
+    ($method:ident, $arg_type:ident, $arg_args:ident, $arg_args_type:ident) => {
+        pub fn $method(
+            &self,
+            handler: impl Fn(WebView, $arg_args) -> Result<()> + 'static,
+        ) -> Result<EventRegistrationToken> {
+            let mut token: EventRegistrationToken = unsafe { mem::zeroed() };
+
+            let handler = callback!(
+                $arg_type,
+                move |sender: *mut *mut ICoreWebView2VTable,
+                    args: *mut *mut $arg_args_type|
+                    -> HRESULT {
+                    let sender = WebView {
+                        inner: unsafe { add_ref_to_rc(sender) },
+                    };
+                    let args = $arg_args {
+                        inner: unsafe { add_ref_to_rc(args) },
+                    };
+                    to_hresult(handler(sender, args))
+                }
+            );
+
+            check_hresult(unsafe {
+                self.inner.$method(handler.as_raw(), &mut token)
+            })?;
+            Ok(token)
+        }
+    };
+}
+
+macro_rules! remove_event_handler {
+    ($method:ident) => {
+        pub fn $method(&self, token: EventRegistrationToken) -> Result<()> {
+            check_hresult(unsafe { self.inner.$method(token) })
         }
     };
 }
@@ -343,22 +537,35 @@ impl Environment {
 }
 
 impl Host {
-    pub fn put_is_visible(&self, is_visible: bool) -> Result<()> {
-        let is_visible: BOOL = if is_visible { 1 } else { 0 };
-        check_hresult(unsafe { self.inner.put_is_visible(is_visible) })
-    }
+    get_bool!(get_is_visible);
+    put_bool!(put_is_visible);
+    // TODO: get_bounds
     pub fn put_bounds(&self, bounds: RECT) -> Result<()> {
         check_hresult(unsafe { self.inner.put_bounds(bounds) })
     }
+    // TODO: get_zoom_factor
+    // TODO: put_zoom_factor
+    add_event_handler_host!(
+        add_zoom_factor_changed,
+        ICoreWebView2ZoomFactorChangedEventHandler
+    );
+    remove_event_handler!(remove_zoom_factor_changed);
+    // TODO: set_bounds_and_zoom_factor
     pub fn move_focus(&self, reason: MoveFocusReason) -> Result<()> {
         check_hresult(unsafe { self.inner.move_focus(reason) })
     }
-    pub fn notify_parent_window_position_changed(&self) -> Result<()> {
-        check_hresult(unsafe { self.inner.notify_parent_window_position_changed() })
-    }
-    pub fn close(&self) -> Result<()> {
-        check_hresult(unsafe { self.inner.close() })
-    }
+    // TODO: add_move_focus_requested //eventHandler
+    remove_event_handler!(remove_move_focus_requested);
+    add_event_handler_host!(add_got_focus, ICoreWebView2FocusChangedEventHandler);
+    remove_event_handler!(remove_got_focus);
+    add_event_handler_host!(add_lost_focus, ICoreWebView2FocusChangedEventHandler);
+    remove_event_handler!(remove_lost_focus);
+    // TODO: add_accelerator_key_pressed //eventHandler
+    remove_event_handler!(remove_accelerator_key_pressed);
+    // TODO: get_parent_window
+    // TODO: put_parent_window
+    call!(notify_parent_window_position_changed);
+    call!(close);
     pub fn get_webview(&self) -> Result<WebView> {
         let mut ppv: *mut *mut ICoreWebView2VTable = ptr::null_mut();
         check_hresult(unsafe { self.inner.get_core_web_view2(&mut ppv) })?;
@@ -381,14 +588,66 @@ impl WebView {
         })
     }
     get_string!(get_source);
-    pub fn navigate(&self, uri: &str) -> Result<()> {
-        let uri = WideCString::from_str(uri)?;
-        check_hresult(unsafe { self.inner.navigate(uri.as_ptr()) })
-    }
-    pub fn navigate_to_string(&self, html_content: &str) -> Result<()> {
-        let html_content = WideCString::from_str(html_content)?;
-        check_hresult(unsafe { self.inner.navigate_to_string(html_content.as_ptr()) })
-    }
+    put_string!(navigate);
+    put_string!(navigate_to_string);
+    add_event_handler!(
+        add_navigation_starting,
+        ICoreWebView2NavigationStartingEventHandler,
+        NavigationStartingEventArgs,
+        ICoreWebView2NavigationStartingEventArgsVTable
+    );
+    remove_event_handler!(remove_navigation_starting);
+    add_event_handler!(
+        add_content_loading,
+        ICoreWebView2ContentLoadingEventHandler,
+        ContentLoadingEventArgs,
+        ICoreWebView2ContentLoadingEventArgsVTable
+    );
+    remove_event_handler!(remove_content_loading);
+    add_event_handler!(
+        add_source_changed,
+        ICoreWebView2SourceChangedEventHandler,
+        SourceChangedEventArgs,
+        ICoreWebView2SourceChangedEventArgsVTable
+    );
+    remove_event_handler!(remove_source_changed);
+    add_event_handler_view!(add_history_changed, ICoreWebView2HistoryChangedEventHandler);
+    remove_event_handler!(remove_history_changed);
+    add_event_handler!(
+        add_navigation_completed,
+        ICoreWebView2NavigationCompletedEventHandler,
+        NavigationCompletedEventArgs,
+        ICoreWebView2NavigationCompletedEventArgsVTable
+    );
+    remove_event_handler!(remove_navigation_completed);
+    add_event_handler!(
+        add_frame_navigation_starting,
+        ICoreWebView2NavigationStartingEventHandler,
+        NavigationStartingEventArgs,
+        ICoreWebView2NavigationStartingEventArgsVTable
+    );
+    remove_event_handler!(remove_frame_navigation_starting);
+    add_event_handler!(
+        add_script_dialog_opening,
+        ICoreWebView2ScriptDialogOpeningEventHandler,
+        ScriptDialogOpeningEventArgs,
+        ICoreWebView2ScriptDialogOpeningEventArgsVTable
+    );
+    remove_event_handler!(remove_script_dialog_opening);
+    add_event_handler!(
+        add_permission_requested,
+        ICoreWebView2PermissionRequestedEventHandler,
+        PermissionRequestedEventArgs,
+        ICoreWebView2PermissionRequestedEventArgsVTable
+    );
+    remove_event_handler!(remove_permission_requested);
+    add_event_handler!(
+        add_process_failed,
+        ICoreWebView2ProcessFailedEventHandler,
+        ProcessFailedEventArgs,
+        ICoreWebView2ProcessFailedEventArgsVTable
+    );
+    remove_event_handler!(remove_process_failed);
     // Don't take an `Option<impl FnOnce>`:
     // https://users.rust-lang.org/t/solved-how-to-pass-none-to-a-function-when-an-option-closure-is-expected/10956/8
     pub fn add_script_to_execute_on_document_created(
@@ -453,53 +712,61 @@ impl WebView {
                 .execute_script(script.as_ptr(), callback.as_raw())
         })
     }
-    pub fn post_web_message_as_json(&self, web_message_as_json: &str) -> Result<()> {
-        let message = WideCString::from_str(web_message_as_json)?;
-        check_hresult(unsafe { self.inner.post_web_message_as_json(message.as_ptr()) })
-    }
-    pub fn post_web_message_as_string(&self, web_message_as_string: &str) -> Result<()> {
-        let message = WideCString::from_str(web_message_as_string)?;
-        check_hresult(unsafe { self.inner.post_web_message_as_string(message.as_ptr()) })
-    }
-    pub fn add_web_message_received(
-        &self,
-        handler: impl Fn(WebView, WebMessageReceivedEventArgs) -> Result<()> + 'static,
-    ) -> Result<EventRegistrationToken> {
-        let mut token: EventRegistrationToken = unsafe { mem::zeroed() };
-
-        let handler = callback!(
-            ICoreWebView2WebMessageReceivedEventHandler,
-            move |sender: *mut *mut ICoreWebView2VTable,
-                  args: *mut *mut ICoreWebView2WebMessageReceivedEventArgsVTable|
-                  -> HRESULT {
-                let sender = WebView {
-                    inner: unsafe { add_ref_to_rc(sender) },
-                };
-                let args = WebMessageReceivedEventArgs {
-                    inner: unsafe { add_ref_to_rc(args) },
-                };
-                to_hresult(handler(sender, args))
-            }
-        );
-
-        check_hresult(unsafe {
-            self.inner
-                .add_web_message_received(handler.as_raw(), &mut token)
-        })?;
-        Ok(token)
-    }
-    pub fn remove_web_message_received(&self, token: EventRegistrationToken) -> Result<()> {
-        check_hresult(unsafe { self.inner.remove_web_message_received(token) })
-    }
-    call!(open_dev_tools_window);
+    add_event_handler_view!(
+        add_document_title_changed,
+        ICoreWebView2DocumentTitleChangedEventHandler
+    );
+    remove_event_handler!(remove_document_title_changed);
+    // TODO: capture_preview
     call!(reload);
-    call!(stop);
-    call!(go_back);
-    call!(go_forward);
+    put_string!(post_web_message_as_json);
+    put_string!(post_web_message_as_string);
+    add_event_handler!(
+        add_web_message_received,
+        ICoreWebView2WebMessageReceivedEventHandler,
+        WebMessageReceivedEventArgs,
+        ICoreWebView2WebMessageReceivedEventArgsVTable
+    );
+    remove_event_handler!(remove_web_message_received);
+    // TODO: call_dev_tools_protocol_method
+    // TODO: get_browser_process_id
     get_bool!(get_can_go_back);
     get_bool!(get_can_go_forward);
-    get_bool!(get_contains_full_screen_element);
+    call!(go_back);
+    call!(go_forward);
+    // TODO: get_dev_tools_protocol_event_receiver
+    call!(stop);
+    add_event_handler!(
+        add_new_window_requested,
+        ICoreWebView2NewWindowRequestedEventHandler,
+        NewWindowRequestedEventArgs,
+        ICoreWebView2NewWindowRequestedEventArgsVTable
+    );
+    remove_event_handler!(remove_new_window_requested);
     get_string!(get_document_title);
+    // TODO: add_remote_object ??
+    // TODO: remove_remote_object ??
+    call!(open_dev_tools_window);
+    add_event_handler_view!(
+        add_contains_full_screen_element_changed,
+        ICoreWebView2ContainsFullScreenElementChangedEventHandler
+    );
+    remove_event_handler!(remove_contains_full_screen_element_changed);
+    get_bool!(get_contains_full_screen_element);
+    add_event_handler!(
+        add_web_resource_requested,
+        ICoreWebView2WebResourceRequestedEventHandler,
+        WebResourceRequestedEventArgs,
+        ICoreWebView2WebResourceRequestedEventArgsVTable
+    );
+    remove_event_handler!(remove_web_resource_requested);
+    // TODO: add_web_resource_requested_filter
+    // TODO: remove_web_resource_requested_filter
+    add_event_handler_view!(
+        add_window_close_requested,
+        ICoreWebView2WindowCloseRequestedEventHandler
+    );
+    remove_event_handler!(remove_window_close_requested);
 
     pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2> {
         &self.inner
@@ -536,12 +803,186 @@ impl Settings {
     }
 }
 
+impl ContentLoadingEventArgs {
+    get_bool!(get_is_error_page);
+    // TODO: get_navigation_id //UINT64
+
+    pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2ContentLoadingEventArgs> {
+        &self.inner
+    }
+}
+
 impl WebMessageReceivedEventArgs {
     get_string!(get_source);
     get_string!(try_get_web_message_as_string);
     get_string!(get_web_message_as_json);
 
     pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2WebMessageReceivedEventArgs> {
+        &self.inner
+    }
+}
+
+impl HttpHeadersCollectionIterator {
+    // TODO: get_current_header //LPWSTR LPWSTR
+    get_bool!(get_has_current_header);
+    get_bool!(move_next);
+
+    pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2HttpHeadersCollectionIterator> {
+        &self.inner
+    }
+}
+
+impl HttpRequestHeaders {
+    // TODO: get_header //LPCWSTR LPWSTR
+    // TODO: get_headers //LPCWSTR HttpHeadersCollectionIterator
+    // TODO: contains //LPCWSTR BOOL
+    // TODO: set_header //LPCWSTR LPCWSTR
+    // TODO: remove_header //LPCWSTR
+    // TODO: get_iterator //HttpHeadersCollectionIterator
+
+    pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2HttpRequestHeaders> {
+        &self.inner
+    }
+}
+
+impl HttpResponseHeaders {
+    // TODO: append_header //LPCWSTR LPCWSTR
+    // TODO: contains //LPCWSTR BOOL
+    // TODO: get_header //LPCWSTR LPWSTR
+    // TODO: get_headers //HttpHeadersCollectionIterator
+    // TODO: get_iterator //HttpHeadersCollectionIterator
+
+    pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2HttpResponseHeaders> {
+        &self.inner
+    }
+}
+
+impl Deferral {
+    call!(complete);
+
+    pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2Deferral> {
+        &self.inner
+    }
+}
+
+impl WebResourceRequest {
+    get_string!(get_uri);
+    put_string!(put_uri);
+    get_string!(get_method);
+    put_string!(put_method);
+    // TODO: get_content //IStreamVTable
+    // TODO: put_content //IStreamVTable
+    // TODO: get_headers //HttpRequestHeaders
+
+    pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2WebResourceRequest> {
+        &self.inner
+    }
+}
+
+impl WebResourceResponse {
+    // TODO: get_content //IStreamVTable
+    // TODO: put_content //IStreamVTable
+    // TODO: get_headers //HttpResponseHeaders
+    // TODO: get_status_code //i32
+    // TODO: put_status_code //i32
+    get_string!(get_reason_phrase);
+    put_string!(put_reason_phrase);
+
+    pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2WebResourceResponse> {
+        &self.inner
+    }
+}
+
+impl WebResourceRequestedEventArgs {
+    // TODO: get_request  //WebResourceRequest
+    // TODO: get_response //WebResourceResponse
+    // TODO: put_response //WebResourceResponse
+    // TODO: get_deferral //Deferral
+    // TODO: get_resource_context //CORE_WEBVIEW2_WEB_RESOURCE_CONTEXT
+
+    pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2WebResourceRequestedEventArgs> {
+        &self.inner
+    }
+}
+
+impl NavigationCompletedEventArgs {
+    get_bool!(get_is_success);
+    // TODO: get_web_error_status //CORE_WEBVIEW2_WEB_ERROR_STATUS
+    // TODO: get_navigation_id //UINT64
+
+    pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2NavigationCompletedEventArgs> {
+        &self.inner
+    }
+}
+
+impl NavigationStartingEventArgs {
+    get_string!(get_uri);
+    get_bool!(get_is_user_initiated);
+    get_bool!(get_is_redirected);
+    // TODO: get_request_headers //HttpRequestHeaders
+    get_bool!(get_cancel);
+    put_bool!(put_cancel);
+    // TODO: get_navigation_id //UINT64
+
+    pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2NavigationStartingEventArgs> {
+        &self.inner
+    }
+}
+
+impl SourceChangedEventArgs {
+    get_bool!(get_is_new_document);
+
+    pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2SourceChangedEventArgs> {
+        &self.inner
+    }
+}
+
+impl ScriptDialogOpeningEventArgs {
+    get_string!(get_uri);
+    // TODO: get_kind //CORE_WEBVIEW2_SCRIPT_DIALOG_KIND
+    get_string!(get_message);
+    call!(accept);
+    get_string!(get_default_text);
+    get_string!(get_result_text);
+    put_string!(put_result_text);
+    // TODO: get_deferral //Deferral
+
+    pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2ScriptDialogOpeningEventArgs> {
+        &self.inner
+    }
+}
+
+impl PermissionRequestedEventArgs {
+    get_string!(get_uri);
+    // TODO: get_permission_kind //CORE_WEBVIEW2_PERMISSION_KIND
+    get_bool!(get_is_user_initiated);
+    // TODO: get_state //CORE_WEBVIEW2_PERMISSION_STATE
+    // TODO: put_state //CORE_WEBVIEW2_PERMISSION_STATE
+    // TODO: get_deferral //Deferral
+
+    pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2PermissionRequestedEventArgs> {
+        &self.inner
+    }
+}
+
+impl ProcessFailedEventArgs {
+    // TODO: get_process_failed_kind //CORE_WEBVIEW2_PROCESS_FAILED_KIND
+
+    pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2ProcessFailedEventArgs> {
+        &self.inner
+    }
+}
+
+impl NewWindowRequestedEventArgs {
+    get_string!(get_uri);
+    // TODO: put_new_window //ICoreWebView2VTable
+    // TODO: get_new_window //ICoreWebView2VTable
+    put_bool!(put_handled);
+    get_bool!(get_handled);
+    get_bool!(get_is_user_initiated);
+    // TODO: get_deferral //Deferral
+
+    pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2NewWindowRequestedEventArgs> {
         &self.inner
     }
 }
