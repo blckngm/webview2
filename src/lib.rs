@@ -27,7 +27,7 @@ use com::{interfaces::IUnknown, ComInterface, ComPtr, ComRc};
 use std::cell::RefCell;
 use std::fmt;
 use std::io;
-use std::mem;
+use std::mem::{self, MaybeUninit};
 use std::path::Path;
 use std::ptr;
 use widestring::{NulError, WideCStr, WideCString};
@@ -363,6 +363,24 @@ impl<'a> EnvironmentBuilder<'a> {
     }
 }
 
+macro_rules! get {
+    ($get_method:ident, $T: ident) => {
+        pub fn $get_method(&self) -> Result<$T> {
+            let mut value: MaybeUninit<$T> = MaybeUninit::uninit();
+            check_hresult(unsafe { self.inner.$get_method(value.as_mut_ptr()) })?;
+            Ok(unsafe { value.assume_init() })
+        }
+    };
+}
+
+macro_rules! put {
+    ($put_method:ident, $arg_name:ident : $T:ident) => {
+        pub fn $put_method(&self, $arg_name: $T) -> Result<()> {
+            check_hresult(unsafe { self.inner.$put_method($arg_name) })
+        }
+    };
+}
+
 macro_rules! get_bool {
     ($get_method:ident) => {
         pub fn $get_method(&self) -> Result<bool> {
@@ -539,12 +557,10 @@ impl Environment {
 impl Host {
     get_bool!(get_is_visible);
     put_bool!(put_is_visible);
-    // TODO: get_bounds
-    pub fn put_bounds(&self, bounds: RECT) -> Result<()> {
-        check_hresult(unsafe { self.inner.put_bounds(bounds) })
-    }
-    // TODO: get_zoom_factor
-    // TODO: put_zoom_factor
+    get!(get_bounds, RECT);
+    put!(put_bounds, bounds: RECT);
+    get!(get_zoom_factor, f64);
+    put!(put_zoom_factor, zoom_factor: f64);
     add_event_handler_host!(
         add_zoom_factor_changed,
         ICoreWebView2ZoomFactorChangedEventHandler
@@ -562,8 +578,8 @@ impl Host {
     remove_event_handler!(remove_lost_focus);
     // TODO: add_accelerator_key_pressed //eventHandler
     remove_event_handler!(remove_accelerator_key_pressed);
-    // TODO: get_parent_window
-    // TODO: put_parent_window
+    get!(get_parent_window, HWND);
+    put!(put_parent_window, top_level_window: HWND);
     call!(notify_parent_window_position_changed);
     call!(close);
     pub fn get_webview(&self) -> Result<WebView> {
@@ -729,7 +745,7 @@ impl WebView {
     );
     remove_event_handler!(remove_web_message_received);
     // TODO: call_dev_tools_protocol_method
-    // TODO: get_browser_process_id
+    get!(get_browser_process_id, u32);
     get_bool!(get_can_go_back);
     get_bool!(get_can_go_forward);
     call!(go_back);
@@ -805,7 +821,7 @@ impl Settings {
 
 impl ContentLoadingEventArgs {
     get_bool!(get_is_error_page);
-    // TODO: get_navigation_id //UINT64
+    get!(get_navigation_id, u64);
 
     pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2ContentLoadingEventArgs> {
         &self.inner
@@ -837,7 +853,7 @@ impl HttpRequestHeaders {
     // TODO: get_headers //LPCWSTR HttpHeadersCollectionIterator
     // TODO: contains //LPCWSTR BOOL
     // TODO: set_header //LPCWSTR LPCWSTR
-    // TODO: remove_header //LPCWSTR
+    put_string!(remove_header);
     // TODO: get_iterator //HttpHeadersCollectionIterator
 
     pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2HttpRequestHeaders> {
@@ -883,8 +899,8 @@ impl WebResourceResponse {
     // TODO: get_content //IStreamVTable
     // TODO: put_content //IStreamVTable
     // TODO: get_headers //HttpResponseHeaders
-    // TODO: get_status_code //i32
-    // TODO: put_status_code //i32
+    get!(get_status_code, i32);
+    put!(put_status_code, status_code: i32);
     get_string!(get_reason_phrase);
     put_string!(put_reason_phrase);
 
@@ -898,7 +914,7 @@ impl WebResourceRequestedEventArgs {
     // TODO: get_response //WebResourceResponse
     // TODO: put_response //WebResourceResponse
     // TODO: get_deferral //Deferral
-    // TODO: get_resource_context //CORE_WEBVIEW2_WEB_RESOURCE_CONTEXT
+    get!(get_resource_context, CORE_WEBVIEW2_WEB_RESOURCE_CONTEXT);
 
     pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2WebResourceRequestedEventArgs> {
         &self.inner
@@ -907,8 +923,8 @@ impl WebResourceRequestedEventArgs {
 
 impl NavigationCompletedEventArgs {
     get_bool!(get_is_success);
-    // TODO: get_web_error_status //CORE_WEBVIEW2_WEB_ERROR_STATUS
-    // TODO: get_navigation_id //UINT64
+    get!(get_web_error_status, CORE_WEBVIEW2_WEB_ERROR_STATUS);
+    get!(get_navigation_id, u64);
 
     pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2NavigationCompletedEventArgs> {
         &self.inner
@@ -922,7 +938,7 @@ impl NavigationStartingEventArgs {
     // TODO: get_request_headers //HttpRequestHeaders
     get_bool!(get_cancel);
     put_bool!(put_cancel);
-    // TODO: get_navigation_id //UINT64
+    get!(get_navigation_id, u64);
 
     pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2NavigationStartingEventArgs> {
         &self.inner
@@ -939,7 +955,7 @@ impl SourceChangedEventArgs {
 
 impl ScriptDialogOpeningEventArgs {
     get_string!(get_uri);
-    // TODO: get_kind //CORE_WEBVIEW2_SCRIPT_DIALOG_KIND
+    get!(get_kind, CORE_WEBVIEW2_SCRIPT_DIALOG_KIND);
     get_string!(get_message);
     call!(accept);
     get_string!(get_default_text);
@@ -954,10 +970,10 @@ impl ScriptDialogOpeningEventArgs {
 
 impl PermissionRequestedEventArgs {
     get_string!(get_uri);
-    // TODO: get_permission_kind //CORE_WEBVIEW2_PERMISSION_KIND
+    get!(get_permission_kind, CORE_WEBVIEW2_PERMISSION_KIND);
     get_bool!(get_is_user_initiated);
-    // TODO: get_state //CORE_WEBVIEW2_PERMISSION_STATE
-    // TODO: put_state //CORE_WEBVIEW2_PERMISSION_STATE
+    get!(get_state, CORE_WEBVIEW2_PERMISSION_STATE);
+    put!(put_state, state: CORE_WEBVIEW2_PERMISSION_STATE);
     // TODO: get_deferral //Deferral
 
     pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2PermissionRequestedEventArgs> {
@@ -966,7 +982,7 @@ impl PermissionRequestedEventArgs {
 }
 
 impl ProcessFailedEventArgs {
-    // TODO: get_process_failed_kind //CORE_WEBVIEW2_PROCESS_FAILED_KIND
+    get!(get_process_failed_kind, CORE_WEBVIEW2_PROCESS_FAILED_KIND);
 
     pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2ProcessFailedEventArgs> {
         &self.inner
