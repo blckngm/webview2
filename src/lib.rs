@@ -39,6 +39,11 @@ use winapi::shared::winerror::{
     SEVERITY_ERROR, SUCCEEDED, S_OK,
 };
 use winapi::um::combaseapi::CoTaskMemFree;
+
+#[cfg(feature = "embed-dll")]
+use memory_module_sys::{MemoryGetProcAddress, MemoryLoadLibrary};
+
+#[cfg(not(feature = "embed-dll"))]
 use winapi::um::libloaderapi::{GetProcAddress, LoadLibraryW};
 
 use sys::*;
@@ -233,6 +238,15 @@ pub struct Stream {
 /// A builder for calling the `CreateCoreWebView2EnvironmentWithDetails`
 /// function.
 #[derive(Default)]
+#[cfg(feature = "embed-dll")]
+pub struct EnvironmentBuilder<'a> {
+    browser_executable_folder: Option<&'a Path>,
+    user_data_folder: Option<&'a Path>,
+    additional_browser_arguments: Option<&'a str>,
+}
+
+#[derive(Default)]
+#[cfg(not(feature = "embed-dll"))]
 pub struct EnvironmentBuilder<'a> {
     dll_file_path: Option<&'a Path>,
     browser_executable_folder: Option<&'a Path>,
@@ -279,6 +293,7 @@ impl<'a> EnvironmentBuilder<'a> {
     ///   It will be simply passed to `LoadLibraryW`.
     ///
     /// Default value: `WebView2Loader.dll`.
+    #[cfg(not(feature = "embed-dll"))]
     pub fn with_dll_file_path(self, dll_file_path: &'a Path) -> Self {
         Self {
             dll_file_path: Some(dll_file_path),
@@ -290,30 +305,42 @@ impl<'a> EnvironmentBuilder<'a> {
         self,
         completed: impl FnOnce(Result<Environment>) -> Result<()> + 'static,
     ) -> Result<()> {
+        #[cfg(feature = "embed-dll")]
         let Self {
-            dll_file_path,
             browser_executable_folder,
             user_data_folder,
             additional_browser_arguments,
         } = self;
 
         #[cfg(feature = "embed-dll")]
-        let dll_file_path = {
-            let dll_file_path = dll_file_path.unwrap_or_else(|| Path::new("WebView2Loader.dll"));
-            let exe_path = std::env::current_exe()?;
-            let exe_dir = exe_path.parent().unwrap();
-            let dll_file_path = exe_dir.join(dll_file_path);
-            if !dll_file_path.exists() {
-                std::fs::write(&dll_file_path, DLL)?;
-            }
-            dll_file_path
-        };
-        #[cfg(not(feature = "embed-dll"))]
-        let dll_file_path = dll_file_path.unwrap_or_else(|| Path::new("WebView2Loader.dll"));
-
         let create_fn: FnCreateCoreWebView2EnvironmentWithDetails = unsafe {
-            let dll_file_path = WideCString::from_os_str(dll_file_path)?;
-            let dll = LoadLibraryW(dll_file_path.as_ptr());
+            let dll_ptr = DLL.as_ptr() as *const std::os::raw::c_void;
+            let dll = MemoryLoadLibrary(dll_ptr, DLL.len());
+            if dll.is_null() {
+                return Err(io::Error::last_os_error().into());
+            }
+            let create_fn = MemoryGetProcAddress(
+                dll,
+                "CreateCoreWebView2EnvironmentWithDetails\0".as_ptr() as *const i8,
+            );
+            if create_fn.is_null() {
+                return Err(io::Error::last_os_error().into());
+            }
+            mem::transmute(create_fn)
+        };
+
+        #[cfg(not(feature = "embed-dll"))]
+        let Self {
+            dll_file_path,
+            browser_executable_folder,
+            user_data_folder,
+            additional_browser_arguments,
+        } = self;
+        #[cfg(not(feature = "embed-dll"))]
+        let create_fn: FnCreateCoreWebView2EnvironmentWithDetails = unsafe {
+            let dll_file_path = dll_file_path.unwrap_or_else(|| Path::new("WebView2Loader.dll"));
+            let dll_file_path_string = WideCString::from_os_str(dll_file_path)?;
+            let dll = LoadLibraryW(dll_file_path_string.as_ptr());
             if dll.is_null() {
                 return Err(io::Error::last_os_error().into());
             }
