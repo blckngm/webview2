@@ -16,7 +16,7 @@ winapi = { version = "0.3.8", features = ["combaseapi", "libloaderapi"] }
 widestring = "0.4.0"
 # com = "0.1"
 com = { git = "https://github.com/microsoft/com-rs.git" }
-memory-module-sys = { git="https://github.com/indygreg/rs-memory-module-sys", branch = "main", optional = true }
+memory-module-sys = { version = "0.3.0", optional = true }
 
 [dev-dependencies]
 winit = "0.20.0"

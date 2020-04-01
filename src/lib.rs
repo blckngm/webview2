@@ -5,10 +5,9 @@
 //! channels if the stable channel does not work).
 //!
 //! By default, this crate ships a copy of the `WebView2Loader.dll` file for the
-//! target platform (the `embed-dll` feature). This file is then extracted
-//! alongside the executable file and dynamically loaded at runtime. License of
-//! the DLL file (part of the WebView2 SDK) is included in the
-//! `Microsoft.Web.WebView2.0.9.430` folder.
+//! target platform (the `embed-dll` feature). This dll is executed from memory
+//! without create tempory file in disk. License of the DLL file (part of the
+//! WebView2 SDK) is included in the `Microsoft.Web.WebView2.0.9.430` folder.
 //!
 //! There are some high level, idiomatic Rust wrappers, but they are very
 //! incomplete. The low level bindings in `sys` though, is automatically
@@ -238,15 +237,6 @@ pub struct Stream {
 /// A builder for calling the `CreateCoreWebView2EnvironmentWithDetails`
 /// function.
 #[derive(Default)]
-#[cfg(feature = "embed-dll")]
-pub struct EnvironmentBuilder<'a> {
-    browser_executable_folder: Option<&'a Path>,
-    user_data_folder: Option<&'a Path>,
-    additional_browser_arguments: Option<&'a str>,
-}
-
-#[derive(Default)]
-#[cfg(not(feature = "embed-dll"))]
 pub struct EnvironmentBuilder<'a> {
     dll_file_path: Option<&'a Path>,
     browser_executable_folder: Option<&'a Path>,
@@ -284,16 +274,13 @@ impl<'a> EnvironmentBuilder<'a> {
     ///
     /// * When the `embed-dll` feature is enabled:
     ///
-    ///   If it's a relative path, it will be resolved relative to the
-    ///   executable's path. If the file does not exist, the embeded dll file
-    ///   will be written there.
+    ///   It has no effect, the dll is directly used from memory.
     ///
     /// * When the `embed-dll` feature is not enabled:
     ///
     ///   It will be simply passed to `LoadLibraryW`.
     ///
     /// Default value: `WebView2Loader.dll`.
-    #[cfg(not(feature = "embed-dll"))]
     pub fn with_dll_file_path(self, dll_file_path: &'a Path) -> Self {
         Self {
             dll_file_path: Some(dll_file_path),
@@ -305,12 +292,15 @@ impl<'a> EnvironmentBuilder<'a> {
         self,
         completed: impl FnOnce(Result<Environment>) -> Result<()> + 'static,
     ) -> Result<()> {
-        #[cfg(feature = "embed-dll")]
         let Self {
+            dll_file_path,
             browser_executable_folder,
             user_data_folder,
             additional_browser_arguments,
         } = self;
+
+        #[allow(unused_variables)]
+        let dll_file_path = dll_file_path.unwrap_or_else(|| Path::new("WebView2Loader.dll"));
 
         #[cfg(feature = "embed-dll")]
         let create_fn: FnCreateCoreWebView2EnvironmentWithDetails = unsafe {
@@ -330,17 +320,8 @@ impl<'a> EnvironmentBuilder<'a> {
         };
 
         #[cfg(not(feature = "embed-dll"))]
-        let Self {
-            dll_file_path,
-            browser_executable_folder,
-            user_data_folder,
-            additional_browser_arguments,
-        } = self;
-        #[cfg(not(feature = "embed-dll"))]
         let create_fn: FnCreateCoreWebView2EnvironmentWithDetails = unsafe {
-            let dll_file_path = WideCString::from_os_str(
-                dll_file_path.unwrap_or_else(|| Path::new("WebView2Loader.dll"))
-            )?;
+            let dll_file_path = WideCString::from_os_str(dll_file_path)?;
             let dll = LoadLibraryW(dll_file_path.as_ptr());
             if dll.is_null() {
                 return Err(io::Error::last_os_error().into());
