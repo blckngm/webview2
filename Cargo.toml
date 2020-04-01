@@ -9,14 +9,17 @@ license = "MIT"
 
 [features]
 default = ["embed-dll"]
-embed-dll = ["memory-module-sys"]
+embed-dll = []
 
 [dependencies]
 winapi = { version = "0.3.8", features = ["combaseapi", "libloaderapi"] }
 widestring = "0.4.0"
 # com = "0.1"
 com = { git = "https://github.com/microsoft/com-rs.git" }
-memory-module-sys = { version = "0.3.0", optional = true }
+memory-module-sys = { version = "0.3.0" }
 
 [dev-dependencies]
-winit = "0.20.0"
+winit = "0.22.0"
+# futures = "0.3.4"
+# tungstenite = "0.10.1"
+ws = { git = "https://github.com/peddermaster2/ws-rs.git" }
