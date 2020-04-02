@@ -5,10 +5,9 @@
 //! channels if the stable channel does not work).
 //!
 //! By default, this crate ships a copy of the `WebView2Loader.dll` file for the
-//! target platform (the `embed-dll` feature). This file is then extracted
-//! alongside the executable file and dynamically loaded at runtime. License of
-//! the DLL file (part of the WebView2 SDK) is included in the
-//! `Microsoft.Web.WebView2.0.9.430` folder.
+//! target platform (the `embed-dll` feature). This dll is executed from memory
+//! without create tempory file in disk. License of the DLL file (part of the
+//! WebView2 SDK) is included in the `Microsoft.Web.WebView2.0.9.430` folder.
 //!
 //! There are some high level, idiomatic Rust wrappers, but they are very
 //! incomplete. The low level bindings in `sys` though, is automatically
@@ -40,6 +39,7 @@ use winapi::shared::winerror::{
 };
 use winapi::um::combaseapi::CoTaskMemFree;
 use winapi::um::libloaderapi::{GetProcAddress, LoadLibraryW};
+use memory_module_sys::{MemoryGetProcAddress, MemoryLoadLibrary};
 
 use sys::*;
 
@@ -52,6 +52,8 @@ const DLL: &[u8] =
 #[cfg(all(feature = "embed-dll", target_arch = "aarch64"))]
 const DLL: &[u8] =
     include_bytes!("..\\Microsoft.Web.WebView2.0.9.430\\build\\arm64\\WebView2Loader.dll");
+#[cfg(not(feature = "embed-dll"))]
+const DLL: &[u8] = b"";
 
 /// Returns a pointer that implements the COM callback interface with the specified closure.
 /// Inspired by C++ Microsoft::WRT::Callback.
@@ -270,9 +272,8 @@ impl<'a> EnvironmentBuilder<'a> {
     ///
     /// * When the `embed-dll` feature is enabled:
     ///
-    ///   If it's a relative path, it will be resolved relative to the
-    ///   executable's path. If the file does not exist, the embeded dll file
-    ///   will be written there.
+    ///   If it is not defined we use the embedded dll
+    ///   otherwise it is simply passed to `LoadLibraryW`
     ///
     /// * When the `embed-dll` feature is not enabled:
     ///
@@ -297,30 +298,33 @@ impl<'a> EnvironmentBuilder<'a> {
             additional_browser_arguments,
         } = self;
 
-        #[cfg(feature = "embed-dll")]
-        let dll_file_path = {
-            let dll_file_path = dll_file_path.unwrap_or_else(|| Path::new("WebView2Loader.dll"));
-            let exe_path = std::env::current_exe()?;
-            let exe_dir = exe_path.parent().unwrap();
-            let dll_file_path = exe_dir.join(dll_file_path);
-            if !dll_file_path.exists() {
-                std::fs::write(&dll_file_path, DLL)?;
-            }
-            dll_file_path
-        };
-        #[cfg(not(feature = "embed-dll"))]
-        let dll_file_path = dll_file_path.unwrap_or_else(|| Path::new("WebView2Loader.dll"));
-
         let create_fn: FnCreateCoreWebView2EnvironmentWithDetails = unsafe {
-            let dll_file_path = WideCString::from_os_str(dll_file_path)?;
-            let dll = LoadLibraryW(dll_file_path.as_ptr());
-            if dll.is_null() {
-                return Err(io::Error::last_os_error().into());
+            #[allow(unused_assignments)]
+            let mut create_fn = ptr::null();
+
+            if cfg!(all(feature = "embed-dll")) && dll_file_path == None {
+                let dll_ptr = DLL.as_ptr() as *const std::os::raw::c_void;
+                let dll = MemoryLoadLibrary(dll_ptr, DLL.len());
+                if dll.is_null() {
+                    return Err(io::Error::last_os_error().into());
+                }
+                create_fn = MemoryGetProcAddress(
+                    dll,
+                    "CreateCoreWebView2EnvironmentWithDetails\0".as_ptr() as *const i8,
+                );
+            } else {
+                let dll_file_path = dll_file_path.unwrap_or_else(|| Path::new("WebView2Loader.dll"));
+                let dll_file_path = WideCString::from_os_str(dll_file_path)?;
+                let dll = LoadLibraryW(dll_file_path.as_ptr());
+                if dll.is_null() {
+                    return Err(io::Error::last_os_error().into());
+                }
+                create_fn = GetProcAddress(
+                    dll,
+                    "CreateCoreWebView2EnvironmentWithDetails\0".as_ptr() as *const i8,
+                );
             }
-            let create_fn = GetProcAddress(
-                dll,
-                "CreateCoreWebView2EnvironmentWithDetails\0".as_ptr() as *const i8,
-            );
+
             if create_fn.is_null() {
                 return Err(io::Error::last_os_error().into());
             }
