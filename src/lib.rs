@@ -5,9 +5,12 @@
 //! channels if the stable channel does not work).
 //!
 //! By default, this crate ships a copy of the `WebView2Loader.dll` file for the
-//! target platform (the `embed-dll` feature). This dll is executed from memory
-//! without create tempory file in disk. License of the DLL file (part of the
-//! WebView2 SDK) is included in the `Microsoft.Web.WebView2.0.9.430` folder.
+//! target platform. At runtime, this dll will be loaded from memory with the
+//! [memory-module-sys](https://crates.io/crates/memory-module-sys) library.
+//! License of the DLL file (part of the WebView2 SDK) is included in the
+//! `Microsoft.Web.WebView2.0.9.430` folder. You can also [use an external
+//! `WebView2Loader.dll`
+//! file](struct.EnvironmentBuilder.html#method.with_dll_file_path).
 //!
 //! There are some high level, idiomatic Rust wrappers, but they are very
 //! incomplete. The low level bindings in `sys` though, is automatically
@@ -23,6 +26,7 @@
 pub mod sys;
 
 use com::{interfaces::IUnknown, ComInterface, ComPtr, ComRc};
+use memory_module_sys::{MemoryGetProcAddress, MemoryLoadLibrary};
 use std::cell::RefCell;
 use std::fmt;
 use std::io;
@@ -39,21 +43,8 @@ use winapi::shared::winerror::{
 };
 use winapi::um::combaseapi::CoTaskMemFree;
 use winapi::um::libloaderapi::{GetProcAddress, LoadLibraryW};
-use memory_module_sys::{MemoryGetProcAddress, MemoryLoadLibrary};
 
 use sys::*;
-
-#[cfg(all(feature = "embed-dll", target_arch = "x86_64"))]
-const DLL: &[u8] =
-    include_bytes!("..\\Microsoft.Web.WebView2.0.9.430\\build\\x64\\WebView2Loader.dll");
-#[cfg(all(feature = "embed-dll", target_arch = "x86"))]
-const DLL: &[u8] =
-    include_bytes!("..\\Microsoft.Web.WebView2.0.9.430\\build\\x86\\WebView2Loader.dll");
-#[cfg(all(feature = "embed-dll", target_arch = "aarch64"))]
-const DLL: &[u8] =
-    include_bytes!("..\\Microsoft.Web.WebView2.0.9.430\\build\\arm64\\WebView2Loader.dll");
-#[cfg(not(feature = "embed-dll"))]
-const DLL: &[u8] = b"";
 
 /// Returns a pointer that implements the COM callback interface with the specified closure.
 /// Inspired by C++ Microsoft::WRT::Callback.
@@ -243,10 +234,12 @@ pub struct EnvironmentBuilder<'a> {
 }
 
 impl<'a> EnvironmentBuilder<'a> {
+    #[inline]
     pub fn new() -> Self {
         Self::default()
     }
 
+    #[inline]
     pub fn with_browser_executable_folder(self, browser_executable_folder: &'a Path) -> Self {
         Self {
             browser_executable_folder: Some(browser_executable_folder),
@@ -254,6 +247,7 @@ impl<'a> EnvironmentBuilder<'a> {
         }
     }
 
+    #[inline]
     pub fn with_user_data_folder(self, user_data_folder: &'a Path) -> Self {
         Self {
             user_data_folder: Some(user_data_folder),
@@ -261,6 +255,7 @@ impl<'a> EnvironmentBuilder<'a> {
         }
     }
 
+    #[inline]
     pub fn with_additional_browser_arguments(self, additional_browser_arguments: &'a str) -> Self {
         Self {
             additional_browser_arguments: Some(additional_browser_arguments),
@@ -270,16 +265,9 @@ impl<'a> EnvironmentBuilder<'a> {
 
     /// Set path to the `WebView2Loader.dll` file.
     ///
-    /// * When the `embed-dll` feature is enabled:
-    ///
-    ///   If it is not defined we use the embedded dll
-    ///   otherwise it is simply passed to `LoadLibraryW`
-    ///
-    /// * When the `embed-dll` feature is not enabled:
-    ///
-    ///   It will be simply passed to `LoadLibraryW`.
-    ///
-    /// Default value: `WebView2Loader.dll`.
+    /// We will use `LoadLibraryW` to load this DLL file instead of using the
+    /// embedded DLL file.
+    #[inline]
     pub fn with_dll_file_path(self, dll_file_path: &'a Path) -> Self {
         Self {
             dll_file_path: Some(dll_file_path),
@@ -287,6 +275,9 @@ impl<'a> EnvironmentBuilder<'a> {
         }
     }
 
+    // Inline so that dead code elimination can eliminate the DLL file content
+    // and the memory-module-sys functions when they are not used.
+    #[inline]
     pub fn build(
         self,
         completed: impl FnOnce(Result<Environment>) -> Result<()> + 'static,
@@ -299,36 +290,46 @@ impl<'a> EnvironmentBuilder<'a> {
         } = self;
 
         let create_fn: FnCreateCoreWebView2EnvironmentWithDetails = unsafe {
-            #[allow(unused_assignments)]
-            let mut create_fn = ptr::null();
-
-            if cfg!(all(feature = "embed-dll")) && dll_file_path == None {
-                let dll_ptr = DLL.as_ptr() as *const std::os::raw::c_void;
-                let dll = MemoryLoadLibrary(dll_ptr, DLL.len());
-                if dll.is_null() {
-                    return Err(io::Error::last_os_error().into());
-                }
-                create_fn = MemoryGetProcAddress(
-                    dll,
-                    "CreateCoreWebView2EnvironmentWithDetails\0".as_ptr() as *const i8,
-                );
-            } else {
-                let dll_file_path = dll_file_path.unwrap_or_else(|| Path::new("WebView2Loader.dll"));
+            if let Some(dll_file_path) = dll_file_path {
                 let dll_file_path = WideCString::from_os_str(dll_file_path)?;
                 let dll = LoadLibraryW(dll_file_path.as_ptr());
                 if dll.is_null() {
                     return Err(io::Error::last_os_error().into());
                 }
-                create_fn = GetProcAddress(
+                let create_fn = GetProcAddress(
                     dll,
                     "CreateCoreWebView2EnvironmentWithDetails\0".as_ptr() as *const i8,
                 );
+                if create_fn.is_null() {
+                    return Err(io::Error::last_os_error().into());
+                }
+                mem::transmute(create_fn)
+            } else {
+                #[cfg(target_arch = "x86_64")]
+                static DLL: &[u8] = include_bytes!(
+                    "..\\Microsoft.Web.WebView2.0.9.430\\build\\x64\\WebView2Loader.dll"
+                );
+                #[cfg(target_arch = "x86")]
+                static DLL: &[u8] = include_bytes!(
+                    "..\\Microsoft.Web.WebView2.0.9.430\\build\\x86\\WebView2Loader.dll"
+                );
+                #[cfg(target_arch = "aarch64")]
+                static DLL: &[u8] = include_bytes!(
+                    "..\\Microsoft.Web.WebView2.0.9.430\\build\\arm64\\WebView2Loader.dll"
+                );
+                let dll = MemoryLoadLibrary(DLL.as_ptr() as *const _, DLL.len());
+                if dll.is_null() {
+                    return Err(io::Error::last_os_error().into());
+                }
+                let create_fn = MemoryGetProcAddress(
+                    dll,
+                    "CreateCoreWebView2EnvironmentWithDetails\0".as_ptr() as *const i8,
+                );
+                if create_fn.is_null() {
+                    return Err(io::Error::last_os_error().into());
+                }
+                mem::transmute(create_fn)
             }
-
-            if create_fn.is_null() {
-                return Err(io::Error::last_os_error().into());
-            }
-            mem::transmute(create_fn)
         };
 
         let browser_executable_folder = if let Some(p) = browser_executable_folder {

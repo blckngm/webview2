@@ -7,10 +7,6 @@ license = "MIT"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[features]
-default = ["embed-dll"]
-embed-dll = []
-
 [dependencies]
 winapi = { version = "0.3.8", features = ["combaseapi", "libloaderapi"] }
 widestring = "0.4.0"
@@ -19,7 +15,4 @@ com = { git = "https://github.com/microsoft/com-rs.git" }
 memory-module-sys = { version = "0.3.0" }
 
 [dev-dependencies]
-winit = "0.22.0"
-# futures = "0.3.4"
-# tungstenite = "0.10.1"
-ws = { git = "https://github.com/peddermaster2/ws-rs.git" }
+winit = "0.20.0"
