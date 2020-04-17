@@ -179,6 +179,7 @@ impl<'a> TypedefEnum<'a> {
     pub fn render(&self, w: &mut impl Write) -> io::Result<()> {
         write!(w, "{}", self.doc_comment.unwrap_or(""))?;
         writeln!(w, "#[repr(u32)]")?;
+        writeln!(w, "#[derive(Debug, Copy, Clone, Eq, PartialEq)]")?;
         writeln!(w, "pub enum {} {{", self.name)?;
         for variant in &self.variants {
             write!(w, "{}", variant.doc_comment.unwrap_or(""))?;
@@ -240,6 +241,7 @@ impl<'a> TypedefStruct<'a> {
     fn render(&self, w: &mut impl Write) -> io::Result<()> {
         write!(w, "{}", self.doc_comment.unwrap_or(""))?;
         writeln!(w, "#[repr(C)]")?;
+        writeln!(w, "#[derive(Debug, Copy, Clone, Eq, PartialEq)]")?;
         writeln!(w, "pub struct {} {{", self.name)?;
         for field in &self.fields {
             write!(w, "{}", field.doc_comment.unwrap_or(""))?;
@@ -398,6 +400,7 @@ use winapi::um::objidlbase::STATSTG;
 use std::ffi::c_void;
 
 #[repr(C)]
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub struct EventRegistrationToken {
     value: i64,
 }

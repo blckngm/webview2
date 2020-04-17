@@ -1,8 +1,10 @@
 //! Rust bindings for
 //! [WebView2](https://docs.microsoft.com/en-us/microsoft-edge/hosting/webview2).
 //!
-//! You need to install the new Chromium based Edge browser (try the canary/beta
-//! channels if the stable channel does not work).
+//! The new Chromium based Edge browser (>= 82.0.430.0) need to be installed for
+//! this to actually work. Or the
+//! [`build`](struct.EnvironmentBuilder.html#method.build) method will return an
+//! error.
 //!
 //! By default, this crate ships a copy of the `WebView2Loader.dll` file for the
 //! target platform. At runtime, this dll will be loaded from memory with the
@@ -12,12 +14,11 @@
 //! `WebView2Loader.dll`
 //! file](struct.EnvironmentBuilder.html#method.with_dll_file_path).
 //!
-//! There are some high level, idiomatic Rust wrappers, but they are very
-//! incomplete. The low level bindings in `sys` though, is automatically
-//! generated and complete. You can use the `as_raw` methods to convert to raw
-//! COM objects and call all those methods. The `callback` macro can be helpful
-//! for implementing callbacks as COM objects.
-
+//! There are high level, idiomatic Rust wrappers for most APIs. And there are
+//! bindings to almost all the raw COM APIs in the `sys` module. You can use the
+//! `as_raw` methods to convert to raw COM objects and call all those methods.
+//! The `callback` macro can be helpful for implementing callbacks as COM
+//! objects.
 #![cfg(windows)]
 // Caused by the `com_interface` macro.
 #![allow(clippy::cmp_null)]
@@ -1124,7 +1125,7 @@ impl NewWindowRequestedEventArgs {
 }
 
 // This function is not available from winapi yet.
-// FIXME: linking with GNU toolchain.
+#[cfg(target_env = "msvc")]
 #[link(name = "shlwapi")]
 extern "stdcall" {
     fn SHCreateMemStream(p_init: *const u8, cb_init: UINT) -> *mut *mut IStreamVTable;
@@ -1132,6 +1133,9 @@ extern "stdcall" {
 
 impl Stream {
     /// Create a stream from a byte buffer. (`SHCreateMemStream`)
+    ///
+    /// FIXME: This function is only available on MSVC targets.
+    #[cfg(target_env = "msvc")]
     pub fn from_bytes(buf: &[u8]) -> Self {
         let ppv = unsafe { SHCreateMemStream(buf.as_ptr(), buf.len() as _) };
         assert!(!ppv.is_null());
@@ -1267,7 +1271,7 @@ fn to_hresult<T>(r: Result<T>) -> HRESULT {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, target_env = "msvc"))]
 mod tests {
     use super::*;
     use std::io::Read;

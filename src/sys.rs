@@ -15,6 +15,7 @@ use winapi::um::oaidl::VARIANT;
 use winapi::um::objidlbase::STATSTG;
 
 #[repr(C)]
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub struct EventRegistrationToken {
     value: i64,
 }
@@ -1072,6 +1073,7 @@ pub trait ICoreWebView2: IUnknown {
 
 /// Image format used by the ICoreWebView2::CapturePreview method.
 #[repr(u32)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum CORE_WEBVIEW2_CAPTURE_PREVIEW_IMAGE_FORMAT {
     /// PNG image format.
     CORE_WEBVIEW2_CAPTURE_PREVIEW_IMAGE_FORMAT_PNG,
@@ -1082,6 +1084,7 @@ pub enum CORE_WEBVIEW2_CAPTURE_PREVIEW_IMAGE_FORMAT {
 /// Kind of JavaScript dialog used in the ICoreWebView2ScriptDialogOpeningEventHandler
 /// interface.
 #[repr(u32)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum CORE_WEBVIEW2_SCRIPT_DIALOG_KIND {
     /// A dialog invoked via the window.alert JavaScript function.
     CORE_WEBVIEW2_SCRIPT_DIALOG_KIND_ALERT,
@@ -1095,6 +1098,7 @@ pub enum CORE_WEBVIEW2_SCRIPT_DIALOG_KIND {
 
 /// Kind of process failure used in the ICoreWebView2ProcessFailedEventHandler interface.
 #[repr(u32)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum CORE_WEBVIEW2_PROCESS_FAILED_KIND {
     /// Indicates the browser process terminated unexpectedly.
     /// The WebView automatically goes into the Closed state.
@@ -1113,6 +1117,7 @@ pub enum CORE_WEBVIEW2_PROCESS_FAILED_KIND {
 
 /// The type of a permission request.
 #[repr(u32)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum CORE_WEBVIEW2_PERMISSION_KIND {
     /// Unknown permission.
     CORE_WEBVIEW2_PERMISSION_KIND_UNKNOWN_PERMISSION,
@@ -1136,6 +1141,7 @@ pub enum CORE_WEBVIEW2_PERMISSION_KIND {
 
 /// Response to a permission request.
 #[repr(u32)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum CORE_WEBVIEW2_PERMISSION_STATE {
     /// Use default browser behavior, which normally prompt users for decision.
     CORE_WEBVIEW2_PERMISSION_STATE_DEFAULT,
@@ -1147,6 +1153,7 @@ pub enum CORE_WEBVIEW2_PERMISSION_STATE {
 
 /// Error status values for web navigations.
 #[repr(u32)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum CORE_WEBVIEW2_WEB_ERROR_STATUS {
     /// An unknown error occurred.
     CORE_WEBVIEW2_WEB_ERROR_STATUS_UNKNOWN,
@@ -1194,6 +1201,7 @@ pub enum CORE_WEBVIEW2_WEB_ERROR_STATUS {
 
 /// Enum for web resource request contexts.
 #[repr(u32)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum CORE_WEBVIEW2_WEB_RESOURCE_CONTEXT {
     /// All resources
     CORE_WEBVIEW2_WEB_RESOURCE_CONTEXT_ALL,
@@ -1488,6 +1496,7 @@ pub trait ICoreWebView2Host: IUnknown {
 
 /// Reason for moving focus.
 #[repr(u32)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum CORE_WEBVIEW2_MOVE_FOCUS_REASON {
     /// Code setting focus into WebView.
     CORE_WEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC,
@@ -1499,6 +1508,7 @@ pub enum CORE_WEBVIEW2_MOVE_FOCUS_REASON {
 
 /// The type of key event that triggered an AcceleratorKeyPressed event.
 #[repr(u32)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum CORE_WEBVIEW2_KEY_EVENT_KIND {
     /// Correspond to window message WM_KEYDOWN.
     CORE_WEBVIEW2_KEY_EVENT_KIND_KEY_DOWN,
@@ -1514,6 +1524,7 @@ pub enum CORE_WEBVIEW2_KEY_EVENT_KIND {
 /// to a Win32 key event.  See the documentation for WM_KEYDOWN for details
 /// at https://docs.microsoft.com/windows/win32/inputdev/wm-keydown
 #[repr(C)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct CORE_WEBVIEW2_PHYSICAL_KEY_STATUS {
     /// The repeat count for the current message.
     RepeatCount: UINT32,

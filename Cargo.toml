@@ -1,18 +1,23 @@
 [package]
 name = "webview2"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 authors = ["Yin Guanhao <sopium@mysterious.site>"]
 edition = "2018"
 license = "MIT"
+description = "Rust bindings for WebView2"
+repository = "https://github.com/sopium/webview2"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 winapi = { version = "0.3.8", features = ["combaseapi", "libloaderapi"] }
 widestring = "0.4.0"
-# com = "0.1"
-com = { git = "https://github.com/microsoft/com-rs.git" }
-memory-module-sys = { version = "0.3.0" }
+com = "0.2.0"
+memory-module-sys = "0.3.0"
 
 [dev-dependencies]
 winit = "0.20.0"
+
+[package.metadata.docs.rs]
+default-target = "x86_64-pc-windows-msvc"
+targets = ["x86_64-pc-windows-msvc", "x86_64-pc-windows-gnu"]
