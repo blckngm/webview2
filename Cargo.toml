@@ -1,6 +1,6 @@
 [package]
 name = "webview2"
-version = "0.1.0-alpha.1"
+version = "0.1.0-alpha.2-dev"
 authors = ["Yin Guanhao <sopium@mysterious.site>"]
 edition = "2018"
 license = "MIT"
@@ -19,5 +19,5 @@ memory-module-sys = "0.3.0"
 winit = "0.20.0"
 
 [package.metadata.docs.rs]
-default-target = "x86_64-pc-windows-msvc"
-targets = ["x86_64-pc-windows-msvc", "x86_64-pc-windows-gnu"]
+default-target = "x86_64-pc-windows-gnu"
+targets = ["x86_64-pc-windows-gnu"]
