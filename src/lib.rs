@@ -28,6 +28,7 @@ pub mod sys;
 
 use com::{interfaces::IUnknown, ComInterface, ComPtr, ComRc};
 use memory_module_sys::{MemoryGetProcAddress, MemoryLoadLibrary};
+use once_cell::sync::Lazy;
 use std::cell::RefCell;
 use std::fmt;
 use std::io;
@@ -46,6 +47,29 @@ use winapi::um::combaseapi::CoTaskMemFree;
 use winapi::um::libloaderapi::{GetProcAddress, LoadLibraryW};
 
 use sys::*;
+
+#[cfg(target_arch = "x86_64")]
+static WEBVIEW2_LOADER_DLL_CONTENT: &[u8] =
+    include_bytes!("..\\Microsoft.Web.WebView2.0.9.430\\build\\x64\\WebView2Loader.dll");
+#[cfg(target_arch = "x86")]
+static WEBVIEW2_LOADER_DLL_CONTENT: &[u8] =
+    include_bytes!("..\\Microsoft.Web.WebView2.0.9.430\\build\\x86\\WebView2Loader.dll");
+#[cfg(target_arch = "aarch64")]
+static WEBVIEW2_LOADER_DLL_CONTENT: &[u8] =
+    include_bytes!("..\\Microsoft.Web.WebView2.0.9.430\\build\\arm64\\WebView2Loader.dll");
+
+static WEBVIEW2_LOADER_LIBRARY: Lazy<std::result::Result<usize, i32>> = Lazy::new(|| unsafe {
+    let library = MemoryLoadLibrary(
+        WEBVIEW2_LOADER_DLL_CONTENT.as_ptr() as *const _,
+        WEBVIEW2_LOADER_DLL_CONTENT.len(),
+    ) as usize;
+    if library == 0 {
+        // io::Error is not copy or clone, so we use the raw os error.
+        Err(io::Error::last_os_error().raw_os_error().unwrap())
+    } else {
+        Ok(library)
+    }
+});
 
 /// Returns a pointer that implements the COM callback interface with the specified closure.
 /// Inspired by C++ Microsoft::WRT::Callback.
@@ -306,24 +330,10 @@ impl<'a> EnvironmentBuilder<'a> {
                 }
                 mem::transmute(create_fn)
             } else {
-                #[cfg(target_arch = "x86_64")]
-                static DLL: &[u8] = include_bytes!(
-                    "..\\Microsoft.Web.WebView2.0.9.430\\build\\x64\\WebView2Loader.dll"
-                );
-                #[cfg(target_arch = "x86")]
-                static DLL: &[u8] = include_bytes!(
-                    "..\\Microsoft.Web.WebView2.0.9.430\\build\\x86\\WebView2Loader.dll"
-                );
-                #[cfg(target_arch = "aarch64")]
-                static DLL: &[u8] = include_bytes!(
-                    "..\\Microsoft.Web.WebView2.0.9.430\\build\\arm64\\WebView2Loader.dll"
-                );
-                let dll = MemoryLoadLibrary(DLL.as_ptr() as *const _, DLL.len());
-                if dll.is_null() {
-                    return Err(io::Error::last_os_error().into());
-                }
+                let library =
+                    (*WEBVIEW2_LOADER_LIBRARY).map_err(io::Error::from_raw_os_error)?;
                 let create_fn = MemoryGetProcAddress(
-                    dll,
+                    library as _,
                     "CreateCoreWebView2EnvironmentWithDetails\0".as_ptr() as *const i8,
                 );
                 if create_fn.is_null() {
@@ -1124,18 +1134,13 @@ impl NewWindowRequestedEventArgs {
     }
 }
 
-// This function is not available from winapi yet.
-#[cfg(target_env = "msvc")]
-#[link(name = "shlwapi")]
+// Missing in winapi APIs. But present in its import libraries.
 extern "stdcall" {
     fn SHCreateMemStream(p_init: *const u8, cb_init: UINT) -> *mut *mut IStreamVTable;
 }
 
 impl Stream {
     /// Create a stream from a byte buffer. (`SHCreateMemStream`)
-    ///
-    /// FIXME: This function is only available on MSVC targets.
-    #[cfg(target_env = "msvc")]
     pub fn from_bytes(buf: &[u8]) -> Self {
         let ppv = unsafe { SHCreateMemStream(buf.as_ptr(), buf.len() as _) };
         assert!(!ppv.is_null());
@@ -1271,7 +1276,7 @@ fn to_hresult<T>(r: Result<T>) -> HRESULT {
     }
 }
 
-#[cfg(all(test, target_env = "msvc"))]
+#[cfg(test)]
 mod tests {
     use super::*;
     use std::io::Read;
