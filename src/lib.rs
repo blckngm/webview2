@@ -27,7 +27,9 @@
 pub mod sys;
 
 use com::{interfaces::IUnknown, ComInterface, ComPtr, ComRc};
+#[cfg(feature = "memory-load-library")]
 use memory_module_sys::{MemoryGetProcAddress, MemoryLoadLibrary};
+#[cfg(feature = "memory-load-library")]
 use once_cell::sync::Lazy;
 use std::cell::RefCell;
 use std::fmt;
@@ -48,16 +50,17 @@ use winapi::um::libloaderapi::{GetProcAddress, LoadLibraryW};
 
 use sys::*;
 
-#[cfg(target_arch = "x86_64")]
+#[cfg(all(feature = "memory-load-library", target_arch = "x86_64"))]
 static WEBVIEW2_LOADER_DLL_CONTENT: &[u8] =
     include_bytes!("..\\Microsoft.Web.WebView2.0.9.430\\build\\x64\\WebView2Loader.dll");
-#[cfg(target_arch = "x86")]
+#[cfg(all(feature = "memory-load-library", target_arch = "x86"))]
 static WEBVIEW2_LOADER_DLL_CONTENT: &[u8] =
     include_bytes!("..\\Microsoft.Web.WebView2.0.9.430\\build\\x86\\WebView2Loader.dll");
-#[cfg(target_arch = "aarch64")]
+#[cfg(all(feature = "memory-load-library", target_arch = "aarch64"))]
 static WEBVIEW2_LOADER_DLL_CONTENT: &[u8] =
     include_bytes!("..\\Microsoft.Web.WebView2.0.9.430\\build\\arm64\\WebView2Loader.dll");
 
+#[cfg(feature = "memory-load-library")]
 static WEBVIEW2_LOADER_LIBRARY: Lazy<std::result::Result<usize, i32>> = Lazy::new(|| unsafe {
     let library = MemoryLoadLibrary(
         WEBVIEW2_LOADER_DLL_CONTENT.as_ptr() as *const _,
@@ -292,6 +295,9 @@ impl<'a> EnvironmentBuilder<'a> {
     ///
     /// We will use `LoadLibraryW` to load this DLL file instead of using the
     /// embedded DLL file.
+    ///
+    /// When the `memory-load-library` feature is not enabled, this method must
+    /// have been called before calling `build`.
     #[inline]
     pub fn with_dll_file_path(self, dll_file_path: &'a Path) -> Self {
         Self {
@@ -330,16 +336,21 @@ impl<'a> EnvironmentBuilder<'a> {
                 }
                 mem::transmute(create_fn)
             } else {
-                let library =
-                    (*WEBVIEW2_LOADER_LIBRARY).map_err(io::Error::from_raw_os_error)?;
-                let create_fn = MemoryGetProcAddress(
-                    library as _,
-                    "CreateCoreWebView2EnvironmentWithDetails\0".as_ptr() as *const i8,
-                );
-                if create_fn.is_null() {
-                    return Err(io::Error::last_os_error().into());
+                #[cfg(feature = "memory-load-library")]
+                {
+                    let library =
+                        (*WEBVIEW2_LOADER_LIBRARY).map_err(io::Error::from_raw_os_error)?;
+                    let create_fn = MemoryGetProcAddress(
+                        library as _,
+                        "CreateCoreWebView2EnvironmentWithDetails\0".as_ptr() as *const i8,
+                    );
+                    if create_fn.is_null() {
+                        return Err(io::Error::last_os_error().into());
+                    }
+                    mem::transmute(create_fn)
                 }
-                mem::transmute(create_fn)
+                #[cfg(not(feature = "memory-load-library"))]
+                panic!("webview2: DLL file path is not specified")
             }
         };
 
