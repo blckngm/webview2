@@ -1,0 +1,16 @@
+[package]
+name = "webview2-sys"
+version = "0.1.0-alpha.4"
+authors = ["Yin Guanhao <sopium@mysterious.site>"]
+edition = "2018"
+license = "MIT"
+description = "Low Level Bindings for WebView2 SDK"
+repository = "https://github.com/sopium/webview2"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+winapi = { version = "0.3.8", features = [
+    "combaseapi",
+] }
+com = "0.2.0"

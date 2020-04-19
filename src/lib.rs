@@ -15,16 +15,14 @@
 //! file](struct.EnvironmentBuilder.html#method.with_dll_file_path).
 //!
 //! There are high level, idiomatic Rust wrappers for most APIs. And there are
-//! bindings to almost all the raw COM APIs in the `sys` module. You can use the
-//! `as_raw` methods to convert to raw COM objects and call all those methods.
-//! The `callback` macro can be helpful for implementing callbacks as COM
-//! objects.
+//! bindings to almost all the raw COM APIs in the `webview2-sys` crate. You can
+//! use the `as_raw` methods to convert to raw COM objects and call all those
+//! methods. The `callback` macro can be helpful for implementing callbacks as
+//! COM objects.
 #![cfg(windows)]
 // Caused by the `com_interface` macro.
 #![allow(clippy::cmp_null)]
 #![allow(clippy::type_complexity)]
-
-pub mod sys;
 
 use com::{interfaces::IUnknown, ComInterface, ComPtr, ComRc};
 #[cfg(feature = "memory-load-library")]
@@ -37,6 +35,7 @@ use std::io;
 use std::mem::{self, MaybeUninit};
 use std::path::Path;
 use std::ptr;
+use webview2_sys::*;
 use widestring::{NulError, WideCStr, WideCString};
 use winapi::shared::minwindef::*;
 use winapi::shared::ntdef::*;
@@ -47,8 +46,6 @@ use winapi::shared::winerror::{
 };
 use winapi::um::combaseapi::CoTaskMemFree;
 use winapi::um::libloaderapi::{GetProcAddress, LoadLibraryW};
-
-use sys::*;
 
 #[cfg(all(feature = "memory-load-library", target_arch = "x86_64"))]
 static WEBVIEW2_LOADER_DLL_CONTENT: &[u8] =
@@ -1212,10 +1209,10 @@ impl io::Write for Stream {
 }
 
 #[doc(inline)]
-pub type MoveFocusReason = sys::CORE_WEBVIEW2_MOVE_FOCUS_REASON;
+pub type MoveFocusReason = webview2_sys::CORE_WEBVIEW2_MOVE_FOCUS_REASON;
 
 #[doc(inline)]
-pub use sys::EventRegistrationToken;
+pub use webview2_sys::EventRegistrationToken;
 
 /// A webview2 error. Actually, an `HRESULT`.
 #[derive(Debug, Eq, PartialEq)]
