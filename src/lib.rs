@@ -238,6 +238,18 @@ pub struct NewWindowRequestedEventArgs {
     inner: ComRc<dyn ICoreWebView2NewWindowRequestedEventArgs>,
 }
 
+/// `ICoreWebView2MoveFocusRequestedEventArgs`.
+#[derive(Clone)]
+pub struct MoveFocusRequestedEventArgs {
+    inner: ComRc<dyn ICoreWebView2MoveFocusRequestedEventArgs>,
+}
+
+/// `ICoreWebView2AcceleratorKeyPressedEventArgs`.
+#[derive(Clone)]
+pub struct AcceleratorKeyPressedEventArgs {
+    inner: ComRc<dyn ICoreWebView2AcceleratorKeyPressedEventArgs>,
+}
+
 /// `IStream`.
 ///
 /// # `Clone`
@@ -626,17 +638,71 @@ impl Host {
         ICoreWebView2ZoomFactorChangedEventHandler
     );
     remove_event_handler!(remove_zoom_factor_changed);
-    // TODO: set_bounds_and_zoom_factor
+    pub fn set_bounds_and_zoom_factor(&self, bounds: RECT, zoom_factor: f64) -> Result<()> {
+        check_hresult(unsafe { self.inner.set_bounds_and_zoom_factor(bounds, zoom_factor) })
+    }
     pub fn move_focus(&self, reason: MoveFocusReason) -> Result<()> {
         check_hresult(unsafe { self.inner.move_focus(reason) })
     }
-    // TODO: add_move_focus_requested //eventHandler
+    pub fn add_move_focus_requested(
+        &self,
+        handler: impl Fn(Host, MoveFocusRequestedEventArgs) -> Result<()> + 'static,
+    ) -> Result<EventRegistrationToken> {
+        let mut token: MaybeUninit<EventRegistrationToken> = MaybeUninit::uninit();
+
+        let handler = callback!(
+            ICoreWebView2MoveFocusRequestedEventHandler,
+            move |sender: *mut *mut ICoreWebView2HostVTable,
+                  args: *mut *mut ICoreWebView2MoveFocusRequestedEventArgsVTable|
+                  -> HRESULT {
+                let sender = Host {
+                    inner: unsafe { add_ref_to_rc(sender) },
+                };
+                let args = MoveFocusRequestedEventArgs {
+                    inner: unsafe { add_ref_to_rc(args) },
+                };
+                to_hresult(handler(sender, args))
+            }
+        );
+
+        check_hresult(unsafe {
+            self.inner
+                .add_move_focus_requested(handler.as_raw(), token.as_mut_ptr())
+        })?;
+        Ok(unsafe { token.assume_init() })
+    }
     remove_event_handler!(remove_move_focus_requested);
     add_event_handler_host!(add_got_focus, ICoreWebView2FocusChangedEventHandler);
     remove_event_handler!(remove_got_focus);
     add_event_handler_host!(add_lost_focus, ICoreWebView2FocusChangedEventHandler);
     remove_event_handler!(remove_lost_focus);
-    // TODO: add_accelerator_key_pressed //eventHandler
+    pub fn add_accelerator_key_pressed(
+        &self,
+        handler: impl Fn(Host, AcceleratorKeyPressedEventArgs) -> Result<()> + 'static,
+    ) -> Result<EventRegistrationToken> {
+        let mut token: MaybeUninit<EventRegistrationToken> = MaybeUninit::uninit();
+
+        let handler = callback!(
+            ICoreWebView2AcceleratorKeyPressedEventHandler,
+            move |sender: *mut *mut ICoreWebView2HostVTable,
+                  args: *mut *mut ICoreWebView2AcceleratorKeyPressedEventArgsVTable|
+                  -> HRESULT {
+                let sender = Host {
+                    inner: unsafe { add_ref_to_rc(sender) },
+                };
+                let args = AcceleratorKeyPressedEventArgs {
+                    inner: unsafe { add_ref_to_rc(args) },
+                };
+                to_hresult(handler(sender, args))
+            }
+        );
+
+        check_hresult(unsafe {
+            self.inner
+                .add_accelerator_key_pressed(handler.as_raw(), token.as_mut_ptr())
+        })?;
+        Ok(unsafe { token.assume_init() })
+    }
     remove_event_handler!(remove_accelerator_key_pressed);
     get!(get_parent_window, HWND);
     put!(put_parent_window, top_level_window: HWND);
@@ -836,8 +902,28 @@ impl WebView {
         ICoreWebView2WebResourceRequestedEventArgsVTable
     );
     remove_event_handler!(remove_web_resource_requested);
-    // TODO: add_web_resource_requested_filter
-    // TODO: remove_web_resource_requested_filter
+    pub fn add_web_resource_requested_filter(
+        &self,
+        uri: &str,
+        resource_context: CORE_WEBVIEW2_WEB_RESOURCE_CONTEXT,
+    ) -> Result<()> {
+        let uri = WideCString::from_str(uri)?;
+        check_hresult(unsafe {
+            self.inner
+                .add_web_resource_requested_filter(uri.as_ptr(), resource_context)
+        })
+    }
+    pub fn remove_web_resource_requested_filter(
+        &self,
+        uri: &str,
+        resource_context: CORE_WEBVIEW2_WEB_RESOURCE_CONTEXT,
+    ) -> Result<()> {
+        let uri = WideCString::from_str(uri)?;
+        check_hresult(unsafe {
+            self.inner
+                .remove_web_resource_requested_filter(uri.as_ptr(), resource_context)
+        })
+    }
     add_event_handler_view!(
         add_window_close_requested,
         ICoreWebView2WindowCloseRequestedEventHandler
@@ -944,7 +1030,21 @@ impl Iterator for HttpHeadersCollectionIterator {
 }
 
 impl HttpRequestHeaders {
-    // TODO: get_header //LPCWSTR LPWSTR
+    pub fn get_header(&self, name: &str) -> Result<String> {
+        let name = WideCString::from_str(name)?;
+        let mut value: MaybeUninit<LPWSTR> = MaybeUninit::uninit();
+        unsafe {
+            check_hresult(self.inner.get_header(name.as_ptr(), value.as_mut_ptr()))?;
+            let value = value.assume_init();
+            let value1 = WideCStr::from_ptr_str(value)
+                .to_string()
+                .map_err(|_| Error::new(E_FAIL));
+
+            CoTaskMemFree(value as _);
+
+            value1
+        }
+    }
     pub fn get_headers(&self, name: &str) -> Result<HttpHeadersCollectionIterator> {
         let name = WideCString::from_str(name)?;
         let mut iterator: *mut *mut ICoreWebView2HttpHeadersCollectionIteratorVTable =
@@ -954,8 +1054,17 @@ impl HttpRequestHeaders {
             inner: unsafe { add_ref_to_rc(iterator) },
         })
     }
-    // TODO: contains //LPCWSTR BOOL
-    // TODO: set_header //LPCWSTR LPCWSTR
+    pub fn contains(&self, name: &str) -> Result<bool> {
+        let name = WideCString::from_str(name)?;
+        let mut result: MaybeUninit<BOOL> = MaybeUninit::uninit();
+        check_hresult(unsafe { self.inner.contains(name.as_ptr(), result.as_mut_ptr()) })?;
+        Ok(unsafe { result.assume_init() } != 0)
+    }
+    pub fn set_header(&self, name: &str, value: &str) -> Result<()> {
+        let name = WideCString::from_str(name)?;
+        let value = WideCString::from_str(value)?;
+        check_hresult(unsafe { self.inner.set_header(name.as_ptr(), value.as_ptr()) })
+    }
     put_string!(remove_header);
     get_interface!(
         get_iterator,
@@ -969,9 +1078,32 @@ impl HttpRequestHeaders {
 }
 
 impl HttpResponseHeaders {
-    // TODO: append_header //LPCWSTR LPCWSTR
-    // TODO: contains //LPCWSTR BOOL
-    // TODO: get_header //LPCWSTR LPWSTR
+    pub fn get_header(&self, name: &str) -> Result<String> {
+        let name = WideCString::from_str(name)?;
+        let mut value: MaybeUninit<LPWSTR> = MaybeUninit::uninit();
+        unsafe {
+            check_hresult(self.inner.get_header(name.as_ptr(), value.as_mut_ptr()))?;
+            let value = value.assume_init();
+            let value1 = WideCStr::from_ptr_str(value)
+                .to_string()
+                .map_err(|_| Error::new(E_FAIL));
+
+            CoTaskMemFree(value as _);
+
+            value1
+        }
+    }
+    pub fn contains(&self, name: &str) -> Result<bool> {
+        let name = WideCString::from_str(name)?;
+        let mut result: MaybeUninit<BOOL> = MaybeUninit::uninit();
+        check_hresult(unsafe { self.inner.contains(name.as_ptr(), result.as_mut_ptr()) })?;
+        Ok(unsafe { result.assume_init() } != 0)
+    }
+    pub fn append_header(&self, name: &str, value: &str) -> Result<()> {
+        let name = WideCString::from_str(name)?;
+        let value = WideCString::from_str(value)?;
+        check_hresult(unsafe { self.inner.append_header(name.as_ptr(), value.as_ptr()) })
+    }
     pub fn get_headers(&self, name: &str) -> Result<HttpHeadersCollectionIterator> {
         let name = WideCString::from_str(name)?;
         let mut iterator: *mut *mut ICoreWebView2HttpHeadersCollectionIteratorVTable =
@@ -1142,6 +1274,29 @@ impl NewWindowRequestedEventArgs {
     }
 }
 
+impl MoveFocusRequestedEventArgs {
+    get!(get_reason, CORE_WEBVIEW2_MOVE_FOCUS_REASON);
+    get_bool!(get_handled);
+    put_bool!(put_handled);
+
+    pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2MoveFocusRequestedEventArgs> {
+        &self.inner
+    }
+}
+
+impl AcceleratorKeyPressedEventArgs {
+    get!(get_key_event_kind, CORE_WEBVIEW2_KEY_EVENT_KIND);
+    get!(get_virtual_key, u32);
+    get!(get_key_event_lparam, i32);
+    get!(get_physical_key_status, CORE_WEBVIEW2_PHYSICAL_KEY_STATUS);
+    get_bool!(get_handled);
+    put_bool!(put_handled);
+
+    pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2AcceleratorKeyPressedEventArgs> {
+        &self.inner
+    }
+}
+
 // Missing in winapi APIs. But present in its import libraries.
 extern "stdcall" {
     fn SHCreateMemStream(p_init: *const u8, cb_init: UINT) -> *mut *mut IStreamVTable;
@@ -1205,6 +1360,25 @@ impl io::Write for Stream {
 
     fn flush(&mut self) -> io::Result<()> {
         Ok(())
+    }
+}
+
+impl io::Seek for Stream {
+    fn seek(&mut self, pos: io::SeekFrom) -> io::Result<u64> {
+        use std::convert::TryInto;
+
+        let (origin, amount) = match pos {
+            io::SeekFrom::Start(x) => (/* STREAM_SEEK_SET */ 0, x.try_into().unwrap()),
+            io::SeekFrom::Current(x) => (/* STREAM_SEEK_CUR */ 1, x),
+            io::SeekFrom::End(x) => (/* STREAM_SEEK_END */ 2, x),
+        };
+
+        let mut new_pos = MaybeUninit::<u64>::uninit();
+
+        check_hresult(unsafe {
+            self.inner.seek(mem::transmute(amount), origin, new_pos.as_mut_ptr() as *mut _)
+        }).map_err(|e| e.into_io_error())?;
+        Ok(unsafe { new_pos.assume_init() })
     }
 }
 
@@ -1287,13 +1461,17 @@ fn to_hresult<T>(r: Result<T>) -> HRESULT {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Read;
+    use std::io::{Read, Write, Seek};
 
     #[test]
     fn test_stream() {
+        let mut stream = Stream::from_bytes(b"hello,");
+        stream.seek(io::SeekFrom::End(0)).unwrap();
+        stream.write_all(b" world").unwrap();
+
         let mut buf = Vec::new();
-        let mut stream = Stream::from_bytes(&[4u8; 1024]);
+        stream.seek(io::SeekFrom::Start(0)).unwrap();
         stream.read_to_end(&mut buf).unwrap();
-        assert_eq!(buf, &[4u8; 1024][..]);
+        assert_eq!(buf, b"hello, world");
     }
 }
