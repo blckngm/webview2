@@ -1,6 +1,6 @@
 [package]
 name = "webview2-sys"
-version = "0.1.0-alpha.4"
+version = "0.1.0-alpha.5"
 authors = ["Yin Guanhao <sopium@mysterious.site>"]
 edition = "2018"
 license = "MIT"
@@ -14,3 +14,7 @@ winapi = { version = "0.3.8", features = [
     "combaseapi",
 ] }
 com = "0.2.0"
+
+[package.metadata.docs.rs]
+default-target = "x86_64-pc-windows-msvc"
+targets = ["x86_64-pc-windows-msvc"]
