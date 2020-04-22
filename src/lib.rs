@@ -861,7 +861,7 @@ impl WebView {
     remove_event_handler!(remove_document_title_changed);
     pub fn capture_preview(
         &self,
-        image_format: CORE_WEBVIEW2_CAPTURE_PREVIEW_IMAGE_FORMAT,
+        image_format: CapturePreviewImageFormat,
         image_stream: Stream,
         handler: impl FnOnce(Result<()>) -> Result<()> + 'static,
     ) -> Result<()> {
@@ -925,7 +925,7 @@ impl WebView {
     pub fn add_web_resource_requested_filter(
         &self,
         uri: &str,
-        resource_context: CORE_WEBVIEW2_WEB_RESOURCE_CONTEXT,
+        resource_context: WebResourceContext,
     ) -> Result<()> {
         let uri = WideCString::from_str(uri)?;
         check_hresult(unsafe {
@@ -936,7 +936,7 @@ impl WebView {
     pub fn remove_web_resource_requested_filter(
         &self,
         uri: &str,
-        resource_context: CORE_WEBVIEW2_WEB_RESOURCE_CONTEXT,
+        resource_context: WebResourceContext,
     ) -> Result<()> {
         let uri = WideCString::from_str(uri)?;
         check_hresult(unsafe {
@@ -1201,7 +1201,7 @@ impl WebResourceRequestedEventArgs {
     );
     put_interface!(put_response, WebResourceResponse);
     get_interface!(get_deferral, Deferral, ICoreWebView2DeferralVTable);
-    get!(get_resource_context, CORE_WEBVIEW2_WEB_RESOURCE_CONTEXT);
+    get!(get_resource_context, WebResourceContext);
 
     pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2WebResourceRequestedEventArgs> {
         &self.inner
@@ -1210,7 +1210,7 @@ impl WebResourceRequestedEventArgs {
 
 impl NavigationCompletedEventArgs {
     get_bool!(get_is_success);
-    get!(get_web_error_status, CORE_WEBVIEW2_WEB_ERROR_STATUS);
+    get!(get_web_error_status, WebErrorStatus);
     get!(get_navigation_id, u64);
 
     pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2NavigationCompletedEventArgs> {
@@ -1246,7 +1246,7 @@ impl SourceChangedEventArgs {
 
 impl ScriptDialogOpeningEventArgs {
     get_string!(get_uri);
-    get!(get_kind, CORE_WEBVIEW2_SCRIPT_DIALOG_KIND);
+    get!(get_kind, ScriptDialogKind);
     get_string!(get_message);
     call!(accept);
     get_string!(get_default_text);
@@ -1261,10 +1261,10 @@ impl ScriptDialogOpeningEventArgs {
 
 impl PermissionRequestedEventArgs {
     get_string!(get_uri);
-    get!(get_permission_kind, CORE_WEBVIEW2_PERMISSION_KIND);
+    get!(get_permission_kind, PermissionKind);
     get_bool!(get_is_user_initiated);
-    get!(get_state, CORE_WEBVIEW2_PERMISSION_STATE);
-    put!(put_state, state: CORE_WEBVIEW2_PERMISSION_STATE);
+    get!(get_state, PermissionState);
+    put!(put_state, state: PermissionState);
     get_interface!(get_deferral, Deferral, ICoreWebView2DeferralVTable);
 
     pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2PermissionRequestedEventArgs> {
@@ -1273,7 +1273,7 @@ impl PermissionRequestedEventArgs {
 }
 
 impl ProcessFailedEventArgs {
-    get!(get_process_failed_kind, CORE_WEBVIEW2_PROCESS_FAILED_KIND);
+    get!(get_process_failed_kind, ProcessFailedKind);
 
     pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2ProcessFailedEventArgs> {
         &self.inner
@@ -1295,7 +1295,7 @@ impl NewWindowRequestedEventArgs {
 }
 
 impl MoveFocusRequestedEventArgs {
-    get!(get_reason, CORE_WEBVIEW2_MOVE_FOCUS_REASON);
+    get!(get_reason, MoveFocusReason);
     get_bool!(get_handled);
     put_bool!(put_handled);
 
@@ -1305,10 +1305,10 @@ impl MoveFocusRequestedEventArgs {
 }
 
 impl AcceleratorKeyPressedEventArgs {
-    get!(get_key_event_kind, CORE_WEBVIEW2_KEY_EVENT_KIND);
+    get!(get_key_event_kind, KeyEventKind);
     get!(get_virtual_key, u32);
     get!(get_key_event_lparam, i32);
-    get!(get_physical_key_status, CORE_WEBVIEW2_PHYSICAL_KEY_STATUS);
+    get!(get_physical_key_status, PhysicalKeyStatus);
     get_bool!(get_handled);
     put_bool!(put_handled);
 
@@ -1408,10 +1408,11 @@ impl io::Seek for Stream {
 }
 
 #[doc(inline)]
-pub type MoveFocusReason = webview2_sys::CORE_WEBVIEW2_MOVE_FOCUS_REASON;
-
-#[doc(inline)]
-pub use webview2_sys::EventRegistrationToken;
+pub use webview2_sys::{
+    CapturePreviewImageFormat, EventRegistrationToken, KeyEventKind, MoveFocusReason,
+    PermissionKind, PermissionState, PhysicalKeyStatus, ProcessFailedKind, ScriptDialogKind,
+    WebErrorStatus, WebResourceContext,
+};
 
 /// A webview2 error. Actually, an `HRESULT`.
 #[derive(Debug, Eq, PartialEq)]

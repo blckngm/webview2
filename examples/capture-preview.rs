@@ -96,24 +96,26 @@ fn main() {
                 if input.virtual_keycode == Some(winit::event::VirtualKeyCode::Snapshot) {
                     if let Some(ref webview) = webview.borrow().as_ref() {
                         let mut stream = webview2::Stream::from_bytes(&[]);
-                        webview.capture_preview(
-                            webview2_sys::CORE_WEBVIEW2_CAPTURE_PREVIEW_IMAGE_FORMAT::CORE_WEBVIEW2_CAPTURE_PREVIEW_IMAGE_FORMAT_PNG,
-                            stream.clone(),
-                            move |r| {
-                                if r.is_ok() {
-                                    use std::io::{self, Seek};
-                                    stream.seek(io::SeekFrom::Start(0)).unwrap();
-                                    let mut preview_png = std::fs::OpenOptions::new()
-                                        .create(true)
-                                        .write(true)
-                                        .truncate(true)
-                                        .open("preview.png")
-                                        .unwrap();
-                                    io::copy(&mut stream, &mut preview_png).unwrap();
-                                }
-                                Ok(())
-                            }
-                        ).unwrap();
+                        webview
+                            .capture_preview(
+                                webview2::CapturePreviewImageFormat::PNG,
+                                stream.clone(),
+                                move |r| {
+                                    if r.is_ok() {
+                                        use std::io::{self, Seek};
+                                        stream.seek(io::SeekFrom::Start(0)).unwrap();
+                                        let mut preview_png = std::fs::OpenOptions::new()
+                                            .create(true)
+                                            .write(true)
+                                            .truncate(true)
+                                            .open("preview.png")
+                                            .unwrap();
+                                        io::copy(&mut stream, &mut preview_png).unwrap();
+                                    }
+                                    Ok(())
+                                },
+                            )
+                            .unwrap();
                     }
                 }
             }
