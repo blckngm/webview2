@@ -859,7 +859,27 @@ impl WebView {
         ICoreWebView2DocumentTitleChangedEventHandler
     );
     remove_event_handler!(remove_document_title_changed);
-    // TODO: capture_preview
+    pub fn capture_preview(
+        &self,
+        image_format: CORE_WEBVIEW2_CAPTURE_PREVIEW_IMAGE_FORMAT,
+        image_stream: Stream,
+        handler: impl FnOnce(Result<()>) -> Result<()> + 'static,
+    ) -> Result<()> {
+        let handler = RefCell::new(Some(handler));
+        let handler = callback!(
+            ICoreWebView2CapturePreviewCompletedHandler,
+            move |result: HRESULT| -> HRESULT {
+                let handler = handler.borrow_mut().take().unwrap();
+                to_hresult(handler(check_hresult(result)))
+            }
+        );
+        let image_stream = ComPtr::from(image_stream.inner);
+
+        check_hresult(unsafe {
+            self.inner
+                .capture_preview(image_format, image_stream.as_raw(), handler.as_raw())
+        })
+    }
     call!(reload);
     put_string!(post_web_message_as_json);
     put_string!(post_web_message_as_string);
@@ -1376,8 +1396,13 @@ impl io::Seek for Stream {
         let mut new_pos = MaybeUninit::<u64>::uninit();
 
         check_hresult(unsafe {
-            self.inner.seek(mem::transmute(amount), origin, new_pos.as_mut_ptr() as *mut _)
-        }).map_err(|e| e.into_io_error())?;
+            self.inner.seek(
+                mem::transmute(amount),
+                origin,
+                new_pos.as_mut_ptr() as *mut _,
+            )
+        })
+        .map_err(|e| e.into_io_error())?;
         Ok(unsafe { new_pos.assume_init() })
     }
 }
@@ -1461,7 +1486,7 @@ fn to_hresult<T>(r: Result<T>) -> HRESULT {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::{Read, Write, Seek};
+    use std::io::{Read, Seek, Write};
 
     #[test]
     fn test_stream() {
