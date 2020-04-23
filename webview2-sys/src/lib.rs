@@ -16,6 +16,7 @@ use winapi::shared::windef::*;
 use winapi::um::oaidl::VARIANT;
 use winapi::um::objidlbase::STATSTG;
 
+/// Represents a reference to a delegate that receives change notifications.
 #[repr(C)]
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub struct EventRegistrationToken {

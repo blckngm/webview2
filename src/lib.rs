@@ -16,7 +16,7 @@
 //!
 //! There are high level, idiomatic Rust wrappers for most APIs. And there are
 //! bindings to almost all the raw COM APIs in the `webview2-sys` crate. You can
-//! use the `as_raw` methods to convert to raw COM objects and call all those
+//! use the `as_inner` methods to convert to raw COM objects and call all those
 //! methods. The `callback` macro can be helpful for implementing callbacks as
 //! COM objects.
 #![cfg(windows)]
@@ -117,148 +117,7 @@ unsafe fn add_ref_to_rc<T: ComInterface + ?Sized>(
     ptr.upgrade()
 }
 
-/// `ICoreWebView2Environment`.
-#[derive(Clone)]
-pub struct Environment {
-    inner: ComRc<dyn ICoreWebView2Environment>,
-}
-
-/// `ICoreWebView2Host`.
-#[derive(Clone)]
-pub struct Host {
-    inner: ComRc<dyn ICoreWebView2Host>,
-}
-
-/// `ICoreWebView2`.
-#[derive(Clone)]
-#[repr(C)]
-pub struct WebView {
-    inner: ComRc<dyn ICoreWebView2>,
-}
-
-/// `ICoreWebView2Settings`.
-#[derive(Clone)]
-pub struct Settings {
-    inner: ComRc<dyn ICoreWebView2Settings>,
-}
-
-/// `ICoreWebView2ContentLoadingEventArgs`.
-#[derive(Clone)]
-pub struct ContentLoadingEventArgs {
-    inner: ComRc<dyn ICoreWebView2ContentLoadingEventArgs>,
-}
-
-/// `ICoreWebView2WebMessageReceivedEventArgs`.
-#[derive(Clone)]
-pub struct WebMessageReceivedEventArgs {
-    inner: ComRc<dyn ICoreWebView2WebMessageReceivedEventArgs>,
-}
-
-/// `ICoreWebView2HttpHeadersCollectionIterator`.
-#[derive(Clone)]
-pub struct HttpHeadersCollectionIterator {
-    inner: ComRc<dyn ICoreWebView2HttpHeadersCollectionIterator>,
-}
-
-/// `ICoreWebView2HttpRequestHeaders`.
-#[derive(Clone)]
-pub struct HttpRequestHeaders {
-    inner: ComRc<dyn ICoreWebView2HttpRequestHeaders>,
-}
-
-/// `ICoreWebView2HttpResponseHeaders`.
-#[derive(Clone)]
-pub struct HttpResponseHeaders {
-    inner: ComRc<dyn ICoreWebView2HttpResponseHeaders>,
-}
-
-/// `ICoreWebView2Deferral`.
-#[derive(Clone)]
-pub struct Deferral {
-    inner: ComRc<dyn ICoreWebView2Deferral>,
-}
-
-/// `ICoreWebView2WebResourceRequest`.
-#[derive(Clone)]
-pub struct WebResourceRequest {
-    inner: ComRc<dyn ICoreWebView2WebResourceRequest>,
-}
-
-/// `ICoreWebView2WebResourceResponse`.
-#[derive(Clone)]
-pub struct WebResourceResponse {
-    inner: ComRc<dyn ICoreWebView2WebResourceResponse>,
-}
-
-/// `ICoreWebView2WebResourceRequestedEventArgs`.
-#[derive(Clone)]
-pub struct WebResourceRequestedEventArgs {
-    inner: ComRc<dyn ICoreWebView2WebResourceRequestedEventArgs>,
-}
-
-/// `ICoreWebView2NavigationCompletedEventArgs`.
-#[derive(Clone)]
-pub struct NavigationCompletedEventArgs {
-    inner: ComRc<dyn ICoreWebView2NavigationCompletedEventArgs>,
-}
-
-/// `ICoreWebView2NavigationStartingEventArgs`.
-#[derive(Clone)]
-pub struct NavigationStartingEventArgs {
-    inner: ComRc<dyn ICoreWebView2NavigationStartingEventArgs>,
-}
-
-/// `ICoreWebView2SourceChangedEventArgs`.
-#[derive(Clone)]
-pub struct SourceChangedEventArgs {
-    inner: ComRc<dyn ICoreWebView2SourceChangedEventArgs>,
-}
-
-/// `ICoreWebView2ScriptDialogOpeningEventArgs`.
-#[derive(Clone)]
-pub struct ScriptDialogOpeningEventArgs {
-    inner: ComRc<dyn ICoreWebView2ScriptDialogOpeningEventArgs>,
-}
-
-/// `ICoreWebView2PermissionRequestedEventArgs`.
-#[derive(Clone)]
-pub struct PermissionRequestedEventArgs {
-    inner: ComRc<dyn ICoreWebView2PermissionRequestedEventArgs>,
-}
-
-/// `ICoreWebView2ProcessFailedEventArgs`.
-#[derive(Clone)]
-pub struct ProcessFailedEventArgs {
-    inner: ComRc<dyn ICoreWebView2ProcessFailedEventArgs>,
-}
-
-/// `ICoreWebView2NewWindowRequestedEventArgs`.
-#[derive(Clone)]
-pub struct NewWindowRequestedEventArgs {
-    inner: ComRc<dyn ICoreWebView2NewWindowRequestedEventArgs>,
-}
-
-/// `ICoreWebView2MoveFocusRequestedEventArgs`.
-#[derive(Clone)]
-pub struct MoveFocusRequestedEventArgs {
-    inner: ComRc<dyn ICoreWebView2MoveFocusRequestedEventArgs>,
-}
-
-/// `ICoreWebView2AcceleratorKeyPressedEventArgs`.
-#[derive(Clone)]
-pub struct AcceleratorKeyPressedEventArgs {
-    inner: ComRc<dyn ICoreWebView2AcceleratorKeyPressedEventArgs>,
-}
-
-/// `IStream`.
-///
-/// # `Clone`
-///
-/// The clone implementation simply calls `AddRef`. It does not call `IStream::Clone`.
-#[derive(Clone)]
-pub struct Stream {
-    inner: ComRc<dyn IStream>,
-}
+include!("interfaces.rs");
 
 /// A builder for calling the `CreateCoreWebView2EnvironmentWithDetails`
 /// function.
@@ -620,10 +479,6 @@ impl Environment {
                 .create_core_web_view2_host(parent_window, completed.as_raw())
         })
     }
-
-    pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2Environment> {
-        &self.inner
-    }
 }
 
 impl Host {
@@ -714,10 +569,6 @@ impl Host {
         Ok(WebView {
             inner: unsafe { add_ref_to_rc(ppv) },
         })
-    }
-
-    pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2Host> {
-        &self.inner
     }
 }
 
@@ -949,10 +800,6 @@ impl WebView {
         ICoreWebView2WindowCloseRequestedEventHandler
     );
     remove_event_handler!(remove_window_close_requested);
-
-    pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2> {
-        &self.inner
-    }
 }
 
 impl Settings {
@@ -979,29 +826,17 @@ impl Settings {
 
     get_bool!(get_is_zoom_control_enabled);
     put_bool!(put_is_zoom_control_enabled);
-
-    pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2Settings> {
-        &self.inner
-    }
 }
 
 impl ContentLoadingEventArgs {
     get_bool!(get_is_error_page);
     get!(get_navigation_id, u64);
-
-    pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2ContentLoadingEventArgs> {
-        &self.inner
-    }
 }
 
 impl WebMessageReceivedEventArgs {
     get_string!(get_source);
     get_string!(try_get_web_message_as_string);
     get_string!(get_web_message_as_json);
-
-    pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2WebMessageReceivedEventArgs> {
-        &self.inner
-    }
 }
 
 impl HttpHeadersCollectionIterator {
@@ -1030,10 +865,6 @@ impl HttpHeadersCollectionIterator {
     }
     get_bool!(get_has_current_header);
     get_bool!(move_next);
-
-    pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2HttpHeadersCollectionIterator> {
-        &self.inner
-    }
 }
 
 impl Iterator for HttpHeadersCollectionIterator {
@@ -1091,10 +922,6 @@ impl HttpRequestHeaders {
         HttpHeadersCollectionIterator,
         ICoreWebView2HttpHeadersCollectionIteratorVTable
     );
-
-    pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2HttpRequestHeaders> {
-        &self.inner
-    }
 }
 
 impl HttpResponseHeaders {
@@ -1138,18 +965,10 @@ impl HttpResponseHeaders {
         HttpHeadersCollectionIterator,
         ICoreWebView2HttpHeadersCollectionIteratorVTable
     );
-
-    pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2HttpResponseHeaders> {
-        &self.inner
-    }
 }
 
 impl Deferral {
     call!(complete);
-
-    pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2Deferral> {
-        &self.inner
-    }
 }
 
 impl WebResourceRequest {
@@ -1164,10 +983,6 @@ impl WebResourceRequest {
         HttpRequestHeaders,
         ICoreWebView2HttpRequestHeadersVTable
     );
-
-    pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2WebResourceRequest> {
-        &self.inner
-    }
 }
 
 impl WebResourceResponse {
@@ -1182,10 +997,6 @@ impl WebResourceResponse {
     put!(put_status_code, status_code: i32);
     get_string!(get_reason_phrase);
     put_string!(put_reason_phrase);
-
-    pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2WebResourceResponse> {
-        &self.inner
-    }
 }
 
 impl WebResourceRequestedEventArgs {
@@ -1202,20 +1013,12 @@ impl WebResourceRequestedEventArgs {
     put_interface!(put_response, WebResourceResponse);
     get_interface!(get_deferral, Deferral, ICoreWebView2DeferralVTable);
     get!(get_resource_context, WebResourceContext);
-
-    pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2WebResourceRequestedEventArgs> {
-        &self.inner
-    }
 }
 
 impl NavigationCompletedEventArgs {
     get_bool!(get_is_success);
     get!(get_web_error_status, WebErrorStatus);
     get!(get_navigation_id, u64);
-
-    pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2NavigationCompletedEventArgs> {
-        &self.inner
-    }
 }
 
 impl NavigationStartingEventArgs {
@@ -1230,18 +1033,10 @@ impl NavigationStartingEventArgs {
     get_bool!(get_cancel);
     put_bool!(put_cancel);
     get!(get_navigation_id, u64);
-
-    pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2NavigationStartingEventArgs> {
-        &self.inner
-    }
 }
 
 impl SourceChangedEventArgs {
     get_bool!(get_is_new_document);
-
-    pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2SourceChangedEventArgs> {
-        &self.inner
-    }
 }
 
 impl ScriptDialogOpeningEventArgs {
@@ -1253,10 +1048,6 @@ impl ScriptDialogOpeningEventArgs {
     get_string!(get_result_text);
     put_string!(put_result_text);
     get_interface!(get_deferral, Deferral, ICoreWebView2DeferralVTable);
-
-    pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2ScriptDialogOpeningEventArgs> {
-        &self.inner
-    }
 }
 
 impl PermissionRequestedEventArgs {
@@ -1266,18 +1057,10 @@ impl PermissionRequestedEventArgs {
     get!(get_state, PermissionState);
     put!(put_state, state: PermissionState);
     get_interface!(get_deferral, Deferral, ICoreWebView2DeferralVTable);
-
-    pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2PermissionRequestedEventArgs> {
-        &self.inner
-    }
 }
 
 impl ProcessFailedEventArgs {
     get!(get_process_failed_kind, ProcessFailedKind);
-
-    pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2ProcessFailedEventArgs> {
-        &self.inner
-    }
 }
 
 impl NewWindowRequestedEventArgs {
@@ -1288,20 +1071,12 @@ impl NewWindowRequestedEventArgs {
     get_bool!(get_handled);
     get_bool!(get_is_user_initiated);
     get_interface!(get_deferral, Deferral, ICoreWebView2DeferralVTable);
-
-    pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2NewWindowRequestedEventArgs> {
-        &self.inner
-    }
 }
 
 impl MoveFocusRequestedEventArgs {
     get!(get_reason, MoveFocusReason);
     get_bool!(get_handled);
     put_bool!(put_handled);
-
-    pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2MoveFocusRequestedEventArgs> {
-        &self.inner
-    }
 }
 
 impl AcceleratorKeyPressedEventArgs {
@@ -1311,10 +1086,6 @@ impl AcceleratorKeyPressedEventArgs {
     get!(get_physical_key_status, PhysicalKeyStatus);
     get_bool!(get_handled);
     put_bool!(put_handled);
-
-    pub fn as_raw(&self) -> &ComRc<dyn ICoreWebView2AcceleratorKeyPressedEventArgs> {
-        &self.inner
-    }
 }
 
 // Missing in winapi APIs. But present in its import libraries.
@@ -1342,10 +1113,6 @@ impl Stream {
         Self {
             inner: ComRc::from_raw(ppv),
         }
-    }
-
-    pub fn as_raw(&self) -> &ComRc<dyn IStream> {
-        &self.inner
     }
 }
 
@@ -1414,7 +1181,9 @@ pub use webview2_sys::{
     WebErrorStatus, WebResourceContext,
 };
 
-/// A webview2 error. Actually, an `HRESULT`.
+/// WebView2 Error.
+///
+/// Actually it's just an `HRESULT`.
 #[derive(Debug, Eq, PartialEq)]
 pub struct Error {
     hresult: HRESULT,
