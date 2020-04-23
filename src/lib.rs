@@ -49,13 +49,13 @@ use winapi::um::libloaderapi::{GetProcAddress, LoadLibraryW};
 
 #[cfg(all(feature = "memory-load-library", target_arch = "x86_64"))]
 static WEBVIEW2_LOADER_DLL_CONTENT: &[u8] =
-    include_bytes!("..\\Microsoft.Web.WebView2.0.9.430\\build\\x64\\WebView2Loader.dll");
+    include_bytes!("../Microsoft.Web.WebView2.0.9.430/build/x64/WebView2Loader.dll");
 #[cfg(all(feature = "memory-load-library", target_arch = "x86"))]
 static WEBVIEW2_LOADER_DLL_CONTENT: &[u8] =
-    include_bytes!("..\\Microsoft.Web.WebView2.0.9.430\\build\\x86\\WebView2Loader.dll");
+    include_bytes!("../Microsoft.Web.WebView2.0.9.430/build/x86/WebView2Loader.dll");
 #[cfg(all(feature = "memory-load-library", target_arch = "aarch64"))]
 static WEBVIEW2_LOADER_DLL_CONTENT: &[u8] =
-    include_bytes!("..\\Microsoft.Web.WebView2.0.9.430\\build\\arm64\\WebView2Loader.dll");
+    include_bytes!("../Microsoft.Web.WebView2.0.9.430/build/arm64/WebView2Loader.dll");
 
 #[cfg(feature = "memory-load-library")]
 static WEBVIEW2_LOADER_LIBRARY: Lazy<std::result::Result<usize, i32>> = Lazy::new(|| unsafe {
