@@ -274,7 +274,7 @@ impl<'a> EnvironmentBuilder<'a> {
 macro_rules! get {
     ($get_method:ident, $T: ident) => {
         pub fn $get_method(&self) -> Result<$T> {
-            let mut value: MaybeUninit<$T> = MaybeUninit::uninit();
+            let mut value = MaybeUninit::<$T>::uninit();
             check_hresult(unsafe { self.inner.$get_method(value.as_mut_ptr()) })?;
             Ok(unsafe { value.assume_init() })
         }
@@ -292,7 +292,7 @@ macro_rules! put {
 macro_rules! get_interface {
     ($get_method:ident, $T: ident, $VT: ident) => {
         pub fn $get_method(&self) -> Result<$T> {
-            let mut ppv: MaybeUninit<*mut *mut $VT> = MaybeUninit::uninit();
+            let mut ppv = MaybeUninit::<*mut *mut $VT>::uninit();
             check_hresult(unsafe { self.inner.$get_method(ppv.as_mut_ptr()) })?;
             Ok(unsafe { $T {
                 inner: add_ref_to_rc(ppv.assume_init()),
@@ -315,9 +315,9 @@ macro_rules! put_interface {
 macro_rules! get_bool {
     ($get_method:ident) => {
         pub fn $get_method(&self) -> Result<bool> {
-            let mut enabled: BOOL = 0;
-            check_hresult(unsafe { self.inner.$get_method(&mut enabled) })?;
-            Ok(enabled != 0)
+            let mut enabled = MaybeUninit::<BOOL>::uninit();
+            check_hresult(unsafe { self.inner.$get_method(enabled.as_mut_ptr()) })?;
+            Ok(unsafe { enabled.assume_init() } != 0)
         }
     };
 }
@@ -369,7 +369,7 @@ macro_rules! add_event_handler_host {
             &self,
             event_handler: impl Fn(Host) -> Result<()> + 'static,
         ) -> Result<EventRegistrationToken> {
-            let mut token: EventRegistrationToken = unsafe { mem::zeroed() };
+            let mut token = MaybeUninit::<EventRegistrationToken>::uninit();
 
             let event_handler = callback!(
                 $arg_type,
@@ -384,9 +384,9 @@ macro_rules! add_event_handler_host {
             );
 
             check_hresult(unsafe {
-                self.inner.$method(event_handler.as_raw(), &mut token)
+                self.inner.$method(event_handler.as_raw(), token.as_mut_ptr())
             })?;
-            Ok(token)
+            Ok(unsafe { token.assume_init() })
         }
     };
 }
@@ -397,7 +397,7 @@ macro_rules! add_event_handler_view {
             &self,
             event_handler: impl Fn(WebView) -> Result<()> + 'static,
         ) -> Result<EventRegistrationToken> {
-            let mut token: EventRegistrationToken = unsafe { mem::zeroed() };
+            let mut token = MaybeUninit::<EventRegistrationToken>::uninit();
 
             let event_handler = callback!(
                 $arg_type,
@@ -412,9 +412,9 @@ macro_rules! add_event_handler_view {
             );
 
             check_hresult(unsafe {
-                self.inner.$method(event_handler.as_raw(), &mut token)
+                self.inner.$method(event_handler.as_raw(), token.as_mut_ptr())
             })?;
-            Ok(token)
+            Ok(unsafe { token.assume_init() })
         }
     };
 }
@@ -425,7 +425,7 @@ macro_rules! add_event_handler {
             &self,
             handler: impl Fn(WebView, $arg_args) -> Result<()> + 'static,
         ) -> Result<EventRegistrationToken> {
-            let mut token: EventRegistrationToken = unsafe { mem::zeroed() };
+            let mut token = MaybeUninit::<EventRegistrationToken>::uninit();
 
             let handler = callback!(
                 $arg_type,
@@ -443,9 +443,9 @@ macro_rules! add_event_handler {
             );
 
             check_hresult(unsafe {
-                self.inner.$method(handler.as_raw(), &mut token)
+                self.inner.$method(handler.as_raw(), token.as_mut_ptr())
             })?;
-            Ok(token)
+            Ok(unsafe { token.assume_init() })
         }
     };
 }
@@ -503,7 +503,7 @@ impl Host {
         &self,
         handler: impl Fn(Host, MoveFocusRequestedEventArgs) -> Result<()> + 'static,
     ) -> Result<EventRegistrationToken> {
-        let mut token: MaybeUninit<EventRegistrationToken> = MaybeUninit::uninit();
+        let mut token = MaybeUninit::<EventRegistrationToken>::uninit();
 
         let handler = callback!(
             ICoreWebView2MoveFocusRequestedEventHandler,
@@ -535,7 +535,7 @@ impl Host {
         &self,
         handler: impl Fn(Host, AcceleratorKeyPressedEventArgs) -> Result<()> + 'static,
     ) -> Result<EventRegistrationToken> {
-        let mut token: MaybeUninit<EventRegistrationToken> = MaybeUninit::uninit();
+        let mut token = MaybeUninit::<EventRegistrationToken>::uninit();
 
         let handler = callback!(
             ICoreWebView2AcceleratorKeyPressedEventHandler,
@@ -841,8 +841,8 @@ impl WebMessageReceivedEventArgs {
 
 impl HttpHeadersCollectionIterator {
     pub fn get_current_header(&self) -> Result<(String, String)> {
-        let mut name: MaybeUninit<LPWSTR> = MaybeUninit::uninit();
-        let mut value: MaybeUninit<LPWSTR> = MaybeUninit::uninit();
+        let mut name = MaybeUninit::<LPWSTR>::uninit();
+        let mut value = MaybeUninit::<LPWSTR>::uninit();
         unsafe {
             check_hresult(
                 self.inner
@@ -883,7 +883,7 @@ impl Iterator for HttpHeadersCollectionIterator {
 impl HttpRequestHeaders {
     pub fn get_header(&self, name: &str) -> Result<String> {
         let name = WideCString::from_str(name)?;
-        let mut value: MaybeUninit<LPWSTR> = MaybeUninit::uninit();
+        let mut value = MaybeUninit::<LPWSTR>::uninit();
         unsafe {
             check_hresult(self.inner.get_header(name.as_ptr(), value.as_mut_ptr()))?;
             let value = value.assume_init();
@@ -907,7 +907,7 @@ impl HttpRequestHeaders {
     }
     pub fn contains(&self, name: &str) -> Result<bool> {
         let name = WideCString::from_str(name)?;
-        let mut result: MaybeUninit<BOOL> = MaybeUninit::uninit();
+        let mut result = MaybeUninit::<BOOL>::uninit();
         check_hresult(unsafe { self.inner.contains(name.as_ptr(), result.as_mut_ptr()) })?;
         Ok(unsafe { result.assume_init() } != 0)
     }
@@ -927,7 +927,7 @@ impl HttpRequestHeaders {
 impl HttpResponseHeaders {
     pub fn get_header(&self, name: &str) -> Result<String> {
         let name = WideCString::from_str(name)?;
-        let mut value: MaybeUninit<LPWSTR> = MaybeUninit::uninit();
+        let mut value = MaybeUninit::<LPWSTR>::uninit();
         unsafe {
             check_hresult(self.inner.get_header(name.as_ptr(), value.as_mut_ptr()))?;
             let value = value.assume_init();
@@ -942,7 +942,7 @@ impl HttpResponseHeaders {
     }
     pub fn contains(&self, name: &str) -> Result<bool> {
         let name = WideCString::from_str(name)?;
-        let mut result: MaybeUninit<BOOL> = MaybeUninit::uninit();
+        let mut result = MaybeUninit::<BOOL>::uninit();
         check_hresult(unsafe { self.inner.contains(name.as_ptr(), result.as_mut_ptr()) })?;
         Ok(unsafe { result.assume_init() } != 0)
     }
