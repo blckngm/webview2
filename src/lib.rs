@@ -1,7 +1,7 @@
 //! Rust bindings for
 //! [WebView2](https://docs.microsoft.com/en-us/microsoft-edge/hosting/webview2).
 //!
-//! The new Chromium based Edge browser (>= 82.0.430.0) need to be installed for
+//! The new Chromium based Edge browser (>= 82.0.448.0) need to be installed for
 //! this to actually work. Or the
 //! [`build`](struct.EnvironmentBuilder.html#method.build) method will return an
 //! error.
@@ -10,7 +10,7 @@
 //! target platform. At runtime, this dll will be loaded from memory with the
 //! [memory-module-sys](https://crates.io/crates/memory-module-sys) library.
 //! License of the DLL file (part of the WebView2 SDK) is included in the
-//! `Microsoft.Web.WebView2.0.9.430` folder. You can also [use an external
+//! `Microsoft.Web.WebView2.0.9.448` folder. You can also [use an external
 //! `WebView2Loader.dll`
 //! file](struct.EnvironmentBuilder.html#method.with_dll_file_path).
 //!
@@ -44,18 +44,18 @@ use winapi::shared::winerror::{
     E_FAIL, E_INVALIDARG, FACILITY_WIN32, HRESULT_CODE, HRESULT_FROM_WIN32, MAKE_HRESULT,
     SEVERITY_ERROR, SUCCEEDED, S_OK,
 };
-use winapi::um::combaseapi::CoTaskMemFree;
+use winapi::um::combaseapi::{CoTaskMemAlloc, CoTaskMemFree};
 use winapi::um::libloaderapi::{GetProcAddress, LoadLibraryW};
 
 #[cfg(all(feature = "memory-load-library", target_arch = "x86_64"))]
 static WEBVIEW2_LOADER_DLL_CONTENT: &[u8] =
-    include_bytes!("../Microsoft.Web.WebView2.0.9.430/build/x64/WebView2Loader.dll");
+    include_bytes!("../Microsoft.Web.WebView2.0.9.488/build/x64/WebView2Loader.dll");
 #[cfg(all(feature = "memory-load-library", target_arch = "x86"))]
 static WEBVIEW2_LOADER_DLL_CONTENT: &[u8] =
-    include_bytes!("../Microsoft.Web.WebView2.0.9.430/build/x86/WebView2Loader.dll");
+    include_bytes!("../Microsoft.Web.WebView2.0.9.488/build/x86/WebView2Loader.dll");
 #[cfg(all(feature = "memory-load-library", target_arch = "aarch64"))]
 static WEBVIEW2_LOADER_DLL_CONTENT: &[u8] =
-    include_bytes!("../Microsoft.Web.WebView2.0.9.430/build/arm64/WebView2Loader.dll");
+    include_bytes!("../Microsoft.Web.WebView2.0.9.488/build/arm64/WebView2Loader.dll");
 
 #[cfg(feature = "memory-load-library")]
 static WEBVIEW2_LOADER_LIBRARY: Lazy<std::result::Result<usize, i32>> = Lazy::new(|| unsafe {
@@ -119,6 +119,112 @@ unsafe fn add_ref_to_rc<T: ComInterface + ?Sized>(
 
 include!("interfaces.rs");
 
+#[com::co_class(implements(ICoreWebView2EnvironmentOptions))]
+struct EnvironmentOptionsImpl {
+    additional_browser_arguments: RefCell<Option<WideCString>>,
+    language: RefCell<Option<WideCString>>,
+    target_compatible_browser_version: RefCell<Option<WideCString>>,
+}
+
+impl EnvironmentOptionsImpl {
+    fn new() -> Box<Self> {
+        unreachable!()
+    }
+
+    fn from_builder(
+        builder: &EnvironmentBuilder,
+    ) -> Result<*mut *mut ICoreWebView2EnvironmentOptionsVTable> {
+        let additional_browser_arguments = if let Some(v) = builder.additional_browser_arguments {
+            Some(WideCString::from_str(v)?)
+        } else {
+            None
+        };
+        let language = if let Some(v) = builder.language {
+            Some(WideCString::from_str(v)?)
+        } else {
+            None
+        };
+        let version = if let Some(v) = builder.target_compatible_browser_version {
+            Some(WideCString::from_str(v)?)
+        } else {
+            None
+        };
+        let instance = Self::allocate(
+            additional_browser_arguments.into(),
+            language.into(),
+            version.into(),
+        );
+        unsafe {
+            instance.add_ref();
+        }
+        Ok(Box::into_raw(instance) as _)
+    }
+}
+
+fn clone_wide_cstr_with_co_task_mem_alloc(s: &WideCStr) -> LPWSTR {
+    let len = s.len() + 1;
+    unsafe {
+        let s1 = CoTaskMemAlloc(len * 2) as *mut u16;
+        assert!(!s1.is_null());
+        ptr::copy_nonoverlapping(s.as_ptr(), s1, len);
+        s1
+    }
+}
+
+impl ICoreWebView2EnvironmentOptions for EnvironmentOptionsImpl {
+    unsafe fn get_additional_browser_arguments(
+        &self,
+        /* out, retval */ value: *mut LPWSTR,
+    ) -> HRESULT {
+        if let Some(v) = self.additional_browser_arguments.borrow().as_ref() {
+            value.write(clone_wide_cstr_with_co_task_mem_alloc(&v));
+        } else {
+            value.write(ptr::null_mut());
+        }
+        S_OK
+    }
+
+    unsafe fn put_additional_browser_arguments(&self, /* in */ value: LPCWSTR) -> HRESULT {
+        *self.additional_browser_arguments.borrow_mut() = Some(WideCString::from_ptr_str(value));
+        S_OK
+    }
+
+    unsafe fn get_language(&self, /* out, retval */ value: *mut LPWSTR) -> HRESULT {
+        if let Some(v) = self.language.borrow().as_ref() {
+            value.write(clone_wide_cstr_with_co_task_mem_alloc(&v));
+        } else {
+            value.write(ptr::null_mut());
+        }
+        S_OK
+    }
+
+    unsafe fn put_language(&self, /* in */ value: LPCWSTR) -> HRESULT {
+        *self.language.borrow_mut() = Some(WideCString::from_ptr_str(value));
+        S_OK
+    }
+
+    unsafe fn get_target_compatible_browser_version(
+        &self,
+        /* out, retval */ value: *mut LPWSTR,
+    ) -> HRESULT {
+        if let Some(v) = self.target_compatible_browser_version.borrow().as_ref() {
+            value.write(clone_wide_cstr_with_co_task_mem_alloc(&v));
+        } else {
+            value.write(ptr::null_mut());
+        }
+        S_OK
+    }
+
+    unsafe fn put_target_compatible_browser_version(
+        &self,
+        /* in */ value: LPCWSTR,
+    ) -> HRESULT {
+        *self.target_compatible_browser_version.borrow_mut() =
+            Some(WideCString::from_ptr_str(value));
+        S_OK
+    }
+}
+
 /// A builder for calling the `CreateCoreWebView2EnvironmentWithDetails`
 /// function.
 #[derive(Default)]
@@ -127,6 +233,8 @@ pub struct EnvironmentBuilder<'a> {
     browser_executable_folder: Option<&'a Path>,
     user_data_folder: Option<&'a Path>,
     additional_browser_arguments: Option<&'a str>,
+    language: Option<&'a str>,
+    target_compatible_browser_version: Option<&'a str>,
 }
 
 impl<'a> EnvironmentBuilder<'a> {
@@ -159,6 +267,18 @@ impl<'a> EnvironmentBuilder<'a> {
         }
     }
 
+    #[inline]
+    pub fn with_language(mut self, language: &'a str) -> Self {
+        self.language = Some(language);
+        self
+    }
+
+    #[inline]
+    pub fn with_target_compatible_browser_version(mut self, version: &'a str) -> Self {
+        self.target_compatible_browser_version = Some(version);
+        self
+    }
+
     /// Set path to the `WebView2Loader.dll` file.
     ///
     /// We will use `LoadLibraryW` to load this DLL file instead of using the
@@ -185,10 +305,10 @@ impl<'a> EnvironmentBuilder<'a> {
             dll_file_path,
             browser_executable_folder,
             user_data_folder,
-            additional_browser_arguments,
+            ..
         } = self;
 
-        let create_fn: FnCreateCoreWebView2EnvironmentWithDetails = unsafe {
+        let create_fn: FnCreateCoreWebView2EnvironmentWithOptions = unsafe {
             if let Some(dll_file_path) = dll_file_path {
                 let dll_file_path = WideCString::from_os_str(dll_file_path)?;
                 let dll = LoadLibraryW(dll_file_path.as_ptr());
@@ -197,7 +317,7 @@ impl<'a> EnvironmentBuilder<'a> {
                 }
                 let create_fn = GetProcAddress(
                     dll,
-                    "CreateCoreWebView2EnvironmentWithDetails\0".as_ptr() as *const i8,
+                    "CreateCoreWebView2EnvironmentWithOptions\0".as_ptr() as *const i8,
                 );
                 if create_fn.is_null() {
                     return Err(io::Error::last_os_error().into());
@@ -210,7 +330,7 @@ impl<'a> EnvironmentBuilder<'a> {
                         (*WEBVIEW2_LOADER_LIBRARY).map_err(io::Error::from_raw_os_error)?;
                     let create_fn = MemoryGetProcAddress(
                         library as _,
-                        "CreateCoreWebView2EnvironmentWithDetails\0".as_ptr() as *const i8,
+                        "CreateCoreWebView2EnvironmentWithOptions\0".as_ptr() as *const i8,
                     );
                     if create_fn.is_null() {
                         return Err(io::Error::last_os_error().into());
@@ -232,11 +352,7 @@ impl<'a> EnvironmentBuilder<'a> {
         } else {
             None
         };
-        let additional_browser_arguments = if let Some(a) = additional_browser_arguments {
-            Some(WideCString::from_str(a)?)
-        } else {
-            None
-        };
+        let options = EnvironmentOptionsImpl::from_builder(&self)?;
 
         let completed = RefCell::new(Some(completed));
         let completed = callback!(
@@ -261,10 +377,7 @@ impl<'a> EnvironmentBuilder<'a> {
                     .as_ref()
                     .map(|p| p.as_ptr())
                     .unwrap_or(ptr::null()),
-                additional_browser_arguments
-                    .as_ref()
-                    .map(|p| p.as_ptr())
-                    .unwrap_or(ptr::null()),
+                options,
                 completed.as_raw(),
             )
         })
@@ -294,9 +407,11 @@ macro_rules! get_interface {
         pub fn $get_method(&self) -> Result<$T> {
             let mut ppv = MaybeUninit::<*mut *mut $VT>::uninit();
             check_hresult(unsafe { self.inner.$get_method(ppv.as_mut_ptr()) })?;
-            Ok(unsafe { $T {
-                inner: add_ref_to_rc(ppv.assume_init()),
-            } })
+            Ok(unsafe {
+                $T {
+                    inner: add_ref_to_rc(ppv.assume_init()),
+                }
+            })
         }
     };
 }
@@ -309,7 +424,7 @@ macro_rules! put_interface {
                 self.inner.$put_method(ComPtr::from(i.inner).as_raw())
             })
         }
-    }
+    };
 }
 
 macro_rules! get_bool {
@@ -343,7 +458,7 @@ macro_rules! get_string {
             }
             result1
         }
-    }
+    };
 }
 
 macro_rules! put_string {
@@ -352,7 +467,7 @@ macro_rules! put_string {
             let message = WideCString::from_str(message_string)?;
             check_hresult(unsafe { self.inner.$put_string_method(message.as_ptr()) })
         }
-    }
+    };
 }
 
 macro_rules! call {
@@ -363,20 +478,20 @@ macro_rules! call {
     };
 }
 
-macro_rules! add_event_handler_host {
+macro_rules! add_event_handler_controller {
     ($method:ident, $arg_type:ident) => {
         pub fn $method(
             &self,
-            event_handler: impl Fn(Host) -> Result<()> + 'static,
+            event_handler: impl Fn(Controller) -> Result<()> + 'static,
         ) -> Result<EventRegistrationToken> {
             let mut token = MaybeUninit::<EventRegistrationToken>::uninit();
 
             let event_handler = callback!(
                 $arg_type,
-                move |sender: *mut *mut ICoreWebView2HostVTable,
-                    _args: *mut *mut com::interfaces::iunknown::IUnknownVTable|
-                    -> HRESULT {
-                    let sender = Host {
+                move |sender: *mut *mut ICoreWebView2ControllerVTable,
+                      _args: *mut *mut com::interfaces::iunknown::IUnknownVTable|
+                      -> HRESULT {
+                    let sender = Controller {
                         inner: unsafe { add_ref_to_rc(sender) },
                     };
                     to_hresult(event_handler(sender))
@@ -384,7 +499,8 @@ macro_rules! add_event_handler_host {
             );
 
             check_hresult(unsafe {
-                self.inner.$method(event_handler.as_raw(), token.as_mut_ptr())
+                self.inner
+                    .$method(event_handler.as_raw(), token.as_mut_ptr())
             })?;
             Ok(unsafe { token.assume_init() })
         }
@@ -402,8 +518,8 @@ macro_rules! add_event_handler_view {
             let event_handler = callback!(
                 $arg_type,
                 move |sender: *mut *mut ICoreWebView2VTable,
-                    _args: *mut *mut com::interfaces::iunknown::IUnknownVTable|
-                    -> HRESULT {
+                      _args: *mut *mut com::interfaces::iunknown::IUnknownVTable|
+                      -> HRESULT {
                     let sender = WebView {
                         inner: unsafe { add_ref_to_rc(sender) },
                     };
@@ -412,7 +528,8 @@ macro_rules! add_event_handler_view {
             );
 
             check_hresult(unsafe {
-                self.inner.$method(event_handler.as_raw(), token.as_mut_ptr())
+                self.inner
+                    .$method(event_handler.as_raw(), token.as_mut_ptr())
             })?;
             Ok(unsafe { token.assume_init() })
         }
@@ -427,24 +544,19 @@ macro_rules! add_event_handler {
         ) -> Result<EventRegistrationToken> {
             let mut token = MaybeUninit::<EventRegistrationToken>::uninit();
 
-            let handler = callback!(
-                $arg_type,
-                move |sender: *mut *mut ICoreWebView2VTable,
-                    args: *mut *mut $arg_args_type|
-                    -> HRESULT {
-                    let sender = WebView {
-                        inner: unsafe { add_ref_to_rc(sender) },
-                    };
-                    let args = $arg_args {
-                        inner: unsafe { add_ref_to_rc(args) },
-                    };
-                    to_hresult(handler(sender, args))
-                }
-            );
+            let handler = callback!($arg_type, move |sender: *mut *mut ICoreWebView2VTable,
+                                                     args: *mut *mut $arg_args_type|
+                  -> HRESULT {
+                let sender = WebView {
+                    inner: unsafe { add_ref_to_rc(sender) },
+                };
+                let args = $arg_args {
+                    inner: unsafe { add_ref_to_rc(args) },
+                };
+                to_hresult(handler(sender, args))
+            });
 
-            check_hresult(unsafe {
-                self.inner.$method(handler.as_raw(), token.as_mut_ptr())
-            })?;
+            check_hresult(unsafe { self.inner.$method(handler.as_raw(), token.as_mut_ptr()) })?;
             Ok(unsafe { token.assume_init() })
         }
     };
@@ -459,16 +571,18 @@ macro_rules! remove_event_handler {
 }
 
 impl Environment {
-    pub fn create_host(
+    pub fn create_controller(
         &self,
         parent_window: HWND,
-        completed: impl FnOnce(Result<Host>) -> Result<()> + 'static,
+        completed: impl FnOnce(Result<Controller>) -> Result<()> + 'static,
     ) -> Result<()> {
         let completed = RefCell::new(Some(completed));
         let completed = callback!(
-            ICoreWebView2CreateCoreWebView2HostCompletedHandler,
-            move |result: HRESULT, created_host: *mut *mut ICoreWebView2HostVTable| -> HRESULT {
-                let result = check_hresult(result).map(|_| Host {
+            ICoreWebView2CreateCoreWebView2ControllerCompletedHandler,
+            move |result: HRESULT,
+                  created_host: *mut *mut ICoreWebView2ControllerVTable|
+                  -> HRESULT {
+                let result = check_hresult(result).map(|_| Controller {
                     inner: unsafe { add_ref_to_rc(created_host) },
                 });
                 to_hresult(completed.borrow_mut().take().unwrap()(result))
@@ -476,19 +590,19 @@ impl Environment {
         );
         check_hresult(unsafe {
             self.inner
-                .create_core_web_view2_host(parent_window, completed.as_raw())
+                .create_core_web_view2_controller(parent_window, completed.as_raw())
         })
     }
 }
 
-impl Host {
+impl Controller {
     get_bool!(get_is_visible);
     put_bool!(put_is_visible);
     get!(get_bounds, RECT);
     put!(put_bounds, bounds: RECT);
     get!(get_zoom_factor, f64);
     put!(put_zoom_factor, zoom_factor: f64);
-    add_event_handler_host!(
+    add_event_handler_controller!(
         add_zoom_factor_changed,
         ICoreWebView2ZoomFactorChangedEventHandler
     );
@@ -501,16 +615,16 @@ impl Host {
     }
     pub fn add_move_focus_requested(
         &self,
-        handler: impl Fn(Host, MoveFocusRequestedEventArgs) -> Result<()> + 'static,
+        handler: impl Fn(Controller, MoveFocusRequestedEventArgs) -> Result<()> + 'static,
     ) -> Result<EventRegistrationToken> {
         let mut token = MaybeUninit::<EventRegistrationToken>::uninit();
 
         let handler = callback!(
             ICoreWebView2MoveFocusRequestedEventHandler,
-            move |sender: *mut *mut ICoreWebView2HostVTable,
+            move |sender: *mut *mut ICoreWebView2ControllerVTable,
                   args: *mut *mut ICoreWebView2MoveFocusRequestedEventArgsVTable|
                   -> HRESULT {
-                let sender = Host {
+                let sender = Controller {
                     inner: unsafe { add_ref_to_rc(sender) },
                 };
                 let args = MoveFocusRequestedEventArgs {
@@ -527,22 +641,22 @@ impl Host {
         Ok(unsafe { token.assume_init() })
     }
     remove_event_handler!(remove_move_focus_requested);
-    add_event_handler_host!(add_got_focus, ICoreWebView2FocusChangedEventHandler);
+    add_event_handler_controller!(add_got_focus, ICoreWebView2FocusChangedEventHandler);
     remove_event_handler!(remove_got_focus);
-    add_event_handler_host!(add_lost_focus, ICoreWebView2FocusChangedEventHandler);
+    add_event_handler_controller!(add_lost_focus, ICoreWebView2FocusChangedEventHandler);
     remove_event_handler!(remove_lost_focus);
     pub fn add_accelerator_key_pressed(
         &self,
-        handler: impl Fn(Host, AcceleratorKeyPressedEventArgs) -> Result<()> + 'static,
+        handler: impl Fn(Controller, AcceleratorKeyPressedEventArgs) -> Result<()> + 'static,
     ) -> Result<EventRegistrationToken> {
         let mut token = MaybeUninit::<EventRegistrationToken>::uninit();
 
         let handler = callback!(
             ICoreWebView2AcceleratorKeyPressedEventHandler,
-            move |sender: *mut *mut ICoreWebView2HostVTable,
+            move |sender: *mut *mut ICoreWebView2ControllerVTable,
                   args: *mut *mut ICoreWebView2AcceleratorKeyPressedEventArgsVTable|
                   -> HRESULT {
-                let sender = Host {
+                let sender = Controller {
                     inner: unsafe { add_ref_to_rc(sender) },
                 };
                 let args = AcceleratorKeyPressedEventArgs {
@@ -757,8 +871,8 @@ impl WebView {
     );
     remove_event_handler!(remove_new_window_requested);
     get_string!(get_document_title);
-    // TODO: add_remote_object ??
-    // TODO: remove_remote_object ??
+    // TODO: add_host_object_to_script ??
+    // TODO: remove_host_object_to_script ??
     call!(open_dev_tools_window);
     add_event_handler_view!(
         add_contains_full_screen_element_changed,
@@ -826,6 +940,9 @@ impl Settings {
 
     get_bool!(get_is_zoom_control_enabled);
     put_bool!(put_is_zoom_control_enabled);
+
+    get_bool!(get_is_built_in_error_page_enabled);
+    put_bool!(put_is_built_in_error_page_enabled);
 }
 
 impl ContentLoadingEventArgs {

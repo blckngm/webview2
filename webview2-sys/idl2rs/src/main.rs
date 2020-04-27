@@ -35,8 +35,8 @@ impl<'a> Type<'a> {
                     } else if p.as_str().starts_with("I") {
                         result.modifiers.push(Modifier::Pointer);
                         format!("{}VTable", p.as_str()).into()
-                    } else if p.as_str().starts_with("CORE_WEBVIEW2_") {
-                        remove_prefix_to_pascal("CORE_WEBVIEW2_", p.as_str()).into()
+                    } else if p.as_str().starts_with("COREWEBVIEW2_") {
+                        remove_prefix_to_pascal("COREWEBVIEW2_", p.as_str()).into()
                     } else {
                         p.as_str().into()
                     }
@@ -97,6 +97,7 @@ impl<'a> Parameter<'a> {
 #[derive(Debug, Default)]
 struct Method<'a> {
     doc_comment: Option<&'a str>,
+    attribute: Option<&'a str>,
     return_type: Type<'a>,
     name: &'a str,
     parameters: Vec<Parameter<'a>>,
@@ -111,6 +112,7 @@ impl<'a> Method<'a> {
         for p in pair.into_inner() {
             match p.as_rule() {
                 Rule::doc_comment => result.doc_comment = Some(p.as_str().trim_end_matches(" \t")),
+                Rule::method_attribute => result.attribute = Some(p.as_str()),
                 Rule::_type => result.return_type = Type::from_pest(p),
                 Rule::method_name => result.name = p.as_str(),
                 Rule::parameter => result.parameters.push(Parameter::from_pest(p)),
@@ -122,7 +124,14 @@ impl<'a> Method<'a> {
 
     pub fn render(&self, w: &mut impl Write) -> io::Result<()> {
         write!(w, "{}", self.doc_comment.unwrap_or(""))?;
-        write!(w, "    unsafe fn {}(&self", camel_to_snake(self.name))?;
+        let name_prefix = if self.attribute == Some("[propget]") {
+            "get_"
+        } else if self.attribute == Some("[propput]") {
+            "put_"
+        } else {
+            ""
+        };
+        write!(w, "    unsafe fn {}{}(&self", name_prefix, camel_to_snake(self.name))?;
         for p in &self.parameters {
             write!(w, ", ")?;
             p.render(w)?;
@@ -185,7 +194,7 @@ impl<'a> TypedefEnum<'a> {
         writeln!(
             w,
             "pub enum {} {{",
-            remove_prefix_to_pascal("CORE_WEBVIEW2_", self.name)
+            remove_prefix_to_pascal("COREWEBVIEW2_", self.name)
         )?;
         for variant in &self.variants {
             write!(w, "{}", variant.doc_comment.unwrap_or(""))?;
@@ -255,7 +264,7 @@ impl<'a> TypedefStruct<'a> {
         writeln!(
             w,
             "pub struct {} {{",
-            remove_prefix_to_pascal("CORE_WEBVIEW2_", self.name)
+            remove_prefix_to_pascal("COREWEBVIEW2_", self.name)
         )?;
         for field in &self.fields {
             write!(w, "{}", field.doc_comment.unwrap_or(""))?;
@@ -274,8 +283,6 @@ struct Interface<'a> {
     parent: &'a str,
     uuid: Option<&'a str>,
     attributes: Vec<&'a str>,
-    enums: Vec<TypedefEnum<'a>>,
-    structs: Vec<TypedefStruct<'a>>,
     methods: Vec<Method<'a>>,
 }
 
@@ -293,8 +300,6 @@ impl<'a> Interface<'a> {
                 Rule::interface_name => result.name = p.as_str(),
                 Rule::parent => result.parent = p.as_str(),
                 Rule::method => result.methods.push(Method::from_pest(p)),
-                Rule::typedef_enum => result.enums.push(TypedefEnum::from_pest(p)),
-                Rule::typedef_struct => result.structs.push(TypedefStruct::from_pest(p)),
                 _ => {}
             }
         }
@@ -318,17 +323,6 @@ impl<'a> Interface<'a> {
         }
         writeln!(w, "}}")?;
 
-        // Enums are top level.
-        for e in &self.enums {
-            writeln!(w)?;
-            e.render(w)?;
-        }
-
-        for s in &self.structs {
-            writeln!(w)?;
-            s.render(w)?;
-        }
-
         Ok(())
     }
 }
@@ -336,6 +330,8 @@ impl<'a> Interface<'a> {
 #[derive(Debug, Default)]
 struct Document<'a> {
     interfaces: Vec<Interface<'a>>,
+    structs: Vec<TypedefStruct<'a>>,
+    enums: Vec<TypedefEnum<'a>>,
 }
 
 impl<'a> Document<'a> {
@@ -347,6 +343,8 @@ impl<'a> Document<'a> {
         for p in pair.into_inner() {
             match p.as_rule() {
                 Rule::interface => result.interfaces.push(Interface::from_pest(p)),
+                Rule::typedef_enum => result.enums.push(TypedefEnum::from_pest(p)),
+                Rule::typedef_struct => result.structs.push(TypedefStruct::from_pest(p)),
                 _ => {}
             }
         }
@@ -355,6 +353,22 @@ impl<'a> Document<'a> {
 
     pub fn render(&self, w: &mut impl Write) -> io::Result<()> {
         let mut first = true;
+        for s in &self.structs {
+            if !first {
+                writeln!(w)?;
+            } else {
+                first = false;
+            }
+            s.render(w)?;
+        }
+        for e in &self.enums {
+            if !first {
+                writeln!(w)?;
+            } else {
+                first = false;
+            }
+            e.render(w)?;
+        }
         for i in &self.interfaces {
             if !first {
                 writeln!(w)?;
@@ -568,13 +582,13 @@ pub trait IStream: ISequentialStream {
 
 
 /// DLL export to create a WebView2 environment with a custom version of Edge,
-/// user data directory and/or additional browser switches.
+/// user data directory and/or additional options.
 ///
 /// browserExecutableFolder is the relative path to the folder that
 /// contains the embedded Edge. The embedded Edge can be obtained by
 /// copying the version named folder of an installed Edge, like
 /// 73.0.52.0 sub folder of an installed 73.0.52.0 Edge. The folder
-/// should have msedge.exe, msedge.dll, etc.
+/// should have msedge.exe, msedge.dll, and so on.
 /// Use null or empty string for browserExecutableFolder to create
 /// WebView using Edge installed on the machine, in which case the
 /// API will try to find a compatible version of Edge installed on the
@@ -599,33 +613,16 @@ pub trait IStream: ISequentialStream {
 /// The app is responsible to clean up its user data folder
 /// when it is done.
 ///
-/// additionalBrowserArguments can be specified to change the behavior of the
-/// WebView. These will be passed to the browser process as part of
-/// the command line. See
-/// [Run Chromium with Flags](https://aka.ms/RunChromiumWithFlags)
-/// for more information about command line switches to browser
-/// process. If the app is launched with a command line switch
-/// `--edge-webview-switches=xxx` the value of that switch (xxx in
-/// the above example) will also be appended to the browser
-/// process command line. Certain switches like `--user-data-dir` are
-/// internal and important to WebView. Those switches will be
-/// ignored even if specified. If the same switches are specified
-/// multiple times, the last one wins. Note that this also applies
-/// to switches like `--enable-features`. There is no attempt to
-/// merge the different values of the same switch. App process's
-/// command line `--edge-webview-switches` value are processed after
-/// the additionalBrowserArguments parameter is processed.
-/// Also note that as a browser process might be shared among
-/// WebViews, the switches are not guaranteed to be applied except
-/// for the first WebView that starts the browser process.
-/// If parsing failed for the specified switches, they will be
-/// ignored. `nullptr` will run browser process with no flags.
+/// Note that as a browser process might be shared among WebViews,
+/// WebView creation will fail with HRESULT_FROM_WIN32(ERROR_INVALID_STATE) if
+/// the specified options does not match the options of the WebViews that are
+/// currently running in the shared browser process.
 ///
 /// environment_created_handler is the handler result to the async operation
 /// which will contain the WebView2Environment that got created.
 ///
 /// The browserExecutableFolder, userDataFolder and additionalBrowserArguments
-/// members of the environmentParams may be overridden by
+/// of the environmentOptions may be overridden by
 /// values either specified in environment variables or in the registry.
 ///
 /// When creating a WebView2Environment the following environment variables
@@ -641,7 +638,7 @@ pub trait IStream: ISequentialStream {
 /// If an override environment variable is found then we use the
 /// browserExecutableFolder, userDataFolder and additionalBrowserArguments
 /// values as replacements for the corresponding values in
-/// CreateCoreWebView2EnvironmentWithDetails parameters.
+/// CreateCoreWebView2EnvironmentWithOptions parameters.
 ///
 /// While not strictly overrides, there exists additional environment variables
 /// that can be set:
@@ -732,9 +729,8 @@ pub trait IStream: ISequentialStream {
 /// isn't a registry key then '*'. If an override registry key is found then we
 /// use the browserExecutableFolder, userDataFolder and additionalBrowserArguments
 /// registry values as replacements for the corresponding values in
-/// CreateCoreWebView2EnvironmentWithDetails parameters. If any of those registry values
-/// isn't present, then the parameter passed to CreateCoreWebView2Environment is used.
-pub type FnCreateCoreWebView2EnvironmentWithDetails = unsafe extern "stdcall" fn(browserExecutableFolder: PCWSTR, userDataFolder: PCWSTR, additionalBrowserArguments: PCWSTR, environment_created_handler: *mut *mut ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandlerVTable) -> HRESULT;
+/// CreateCoreWebView2EnvironmentWithOptions parameters.
+pub type FnCreateCoreWebView2EnvironmentWithOptions = unsafe extern "stdcall" fn(browserExecutableFolder: PCWSTR, userDataFolder: PCWSTR, environment_options: *mut *mut ICoreWebView2EnvironmentOptionsVTable, environment_created_handler: *mut *mut ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandlerVTable) -> HRESULT;
 "#
     );
     doc.render(&mut io::stdout()).unwrap();

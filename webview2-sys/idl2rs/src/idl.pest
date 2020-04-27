@@ -21,8 +21,10 @@ parameter = { parameter_attributes? ~ _type ~ identifier }
 
 parameters = _{ (parameter ~ ("," ~ parameter)*)? }
 
+method_attribute = { "[propget]" | "[propput]" }
+
 method_name = { identifier }
-method = { doc_comment? ~ _type ~ method_name ~ "(" ~ parameters ~ ")" ~ ";" }
+method = { doc_comment? ~ method_attribute? ~ _type ~ method_name ~ "(" ~ parameters ~ ")" ~ ";" }
 
 // Enum.
 variant = { doc_comment? ~ identifier }
@@ -43,11 +45,16 @@ interface_name = { identifier }
 parent = { identifier }
 interface = { doc_comment? ~ interface_attributes? ~
     "interface" ~ interface_name ~ ":" ~ parent ~ "{" ~
-    (typedef_enum | typedef_struct | method)* ~
+    method* ~
     "}" }
 
 import = { "import" ~ "\"" ~ (!"\"" ~ ANY)+ ~ "\"" ~ ";" }
 interface_forward_decleration = { "interface" ~ identifier ~ ";" }
 cpp_quote = { doc_comment? ~ "cpp_quote" ~ "(" ~ "\"" ~ (!"\"" ~ ANY)+ ~ "\"" ~ ")" }
 
-document = { SOI ~ import* ~ interface_forward_decleration* ~ (interface | cpp_quote)* ~ EOI }
+document = { SOI ~ import* ~ interface_forward_decleration* ~ (
+    interface |
+    typedef_enum |
+    typedef_struct |
+    cpp_quote
+)* ~ EOI }

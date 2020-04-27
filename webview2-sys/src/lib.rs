@@ -64,13 +64,13 @@ pub trait IStream: ISequentialStream {
 }
 
 /// DLL export to create a WebView2 environment with a custom version of Edge,
-/// user data directory and/or additional browser switches.
+/// user data directory and/or additional options.
 ///
 /// browserExecutableFolder is the relative path to the folder that
 /// contains the embedded Edge. The embedded Edge can be obtained by
 /// copying the version named folder of an installed Edge, like
 /// 73.0.52.0 sub folder of an installed 73.0.52.0 Edge. The folder
-/// should have msedge.exe, msedge.dll, etc.
+/// should have msedge.exe, msedge.dll, and so on.
 /// Use null or empty string for browserExecutableFolder to create
 /// WebView using Edge installed on the machine, in which case the
 /// API will try to find a compatible version of Edge installed on the
@@ -95,33 +95,16 @@ pub trait IStream: ISequentialStream {
 /// The app is responsible to clean up its user data folder
 /// when it is done.
 ///
-/// additionalBrowserArguments can be specified to change the behavior of the
-/// WebView. These will be passed to the browser process as part of
-/// the command line. See
-/// [Run Chromium with Flags](https://aka.ms/RunChromiumWithFlags)
-/// for more information about command line switches to browser
-/// process. If the app is launched with a command line switch
-/// `--edge-webview-switches=xxx` the value of that switch (xxx in
-/// the above example) will also be appended to the browser
-/// process command line. Certain switches like `--user-data-dir` are
-/// internal and important to WebView. Those switches will be
-/// ignored even if specified. If the same switches are specified
-/// multiple times, the last one wins. Note that this also applies
-/// to switches like `--enable-features`. There is no attempt to
-/// merge the different values of the same switch. App process's
-/// command line `--edge-webview-switches` value are processed after
-/// the additionalBrowserArguments parameter is processed.
-/// Also note that as a browser process might be shared among
-/// WebViews, the switches are not guaranteed to be applied except
-/// for the first WebView that starts the browser process.
-/// If parsing failed for the specified switches, they will be
-/// ignored. `nullptr` will run browser process with no flags.
+/// Note that as a browser process might be shared among WebViews,
+/// WebView creation will fail with HRESULT_FROM_WIN32(ERROR_INVALID_STATE) if
+/// the specified options does not match the options of the WebViews that are
+/// currently running in the shared browser process.
 ///
 /// environment_created_handler is the handler result to the async operation
 /// which will contain the WebView2Environment that got created.
 ///
 /// The browserExecutableFolder, userDataFolder and additionalBrowserArguments
-/// members of the environmentParams may be overridden by
+/// of the environmentOptions may be overridden by
 /// values either specified in environment variables or in the registry.
 ///
 /// When creating a WebView2Environment the following environment variables
@@ -137,7 +120,7 @@ pub trait IStream: ISequentialStream {
 /// If an override environment variable is found then we use the
 /// browserExecutableFolder, userDataFolder and additionalBrowserArguments
 /// values as replacements for the corresponding values in
-/// CreateCoreWebView2EnvironmentWithDetails parameters.
+/// CreateCoreWebView2EnvironmentWithOptions parameters.
 ///
 /// While not strictly overrides, there exists additional environment variables
 /// that can be set:
@@ -228,9 +211,222 @@ pub trait IStream: ISequentialStream {
 /// isn't a registry key then '*'. If an override registry key is found then we
 /// use the browserExecutableFolder, userDataFolder and additionalBrowserArguments
 /// registry values as replacements for the corresponding values in
-/// CreateCoreWebView2EnvironmentWithDetails parameters. If any of those registry values
-/// isn't present, then the parameter passed to CreateCoreWebView2Environment is used.
-pub type FnCreateCoreWebView2EnvironmentWithDetails = unsafe extern "stdcall" fn(browserExecutableFolder: PCWSTR, userDataFolder: PCWSTR, additionalBrowserArguments: PCWSTR, environment_created_handler: *mut *mut ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandlerVTable) -> HRESULT;
+/// CreateCoreWebView2EnvironmentWithOptions parameters.
+pub type FnCreateCoreWebView2EnvironmentWithOptions = unsafe extern "stdcall" fn(browserExecutableFolder: PCWSTR, userDataFolder: PCWSTR, environment_options: *mut *mut ICoreWebView2EnvironmentOptionsVTable, environment_created_handler: *mut *mut ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandlerVTable) -> HRESULT;
+/// A structure representing the information packed into the LPARAM given
+/// to a Win32 key event.  See the documentation for WM_KEYDOWN for details
+/// at https://docs.microsoft.com/windows/win32/inputdev/wm-keydown
+#[repr(C)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub struct PhysicalKeyStatus {
+    /// The repeat count for the current message.
+    pub repeat_count: UINT32,
+    /// The scan code.
+    pub scan_code: UINT32,
+    /// Indicates whether the key is an extended key.
+    pub is_extended_key: BOOL,
+    /// The context code.
+    pub is_menu_key_down: BOOL,
+    /// The previous key state.
+    pub was_key_down: BOOL,
+    /// The transition state.
+    pub is_key_released: BOOL,
+}
+
+/// Image format used by the ICoreWebView2::CapturePreview method.
+#[repr(u32)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum CapturePreviewImageFormat {
+    /// PNG image format.
+    PNG,
+    /// JPEG image format.
+    JPEG,
+}
+
+/// Kind of JavaScript dialog used in the ICoreWebView2ScriptDialogOpeningEventHandler
+/// interface.
+#[repr(u32)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum ScriptDialogKind {
+    /// A dialog invoked via the window.alert JavaScript function.
+    Alert,
+    /// A dialog invoked via the window.confirm JavaScript function.
+    Confirm,
+    /// A dialog invoked via the window.prompt JavaScript function.
+    Prompt,
+    /// A dialog invoked via the beforeunload JavaScript event.
+    Beforeunload,
+}
+
+/// Kind of process failure used in the ICoreWebView2ProcessFailedEventHandler interface.
+#[repr(u32)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum ProcessFailedKind {
+    /// Indicates the browser process terminated unexpectedly.
+    /// The WebView automatically goes into the Closed state.
+    /// The app has to recreate a new WebView to recover from this failure.
+    BrowserProcessExited,
+    /// Indicates the render process terminated unexpectedly.
+    /// A new render process will be created automatically and navigated to an
+    /// error page.
+    /// The app can use Reload to try to recover from this failure.
+    RenderProcessExited,
+    /// Indicates the render process becomes unresponsive.
+    /// The app can try to navigate away from the page to recover from the
+    /// failure.
+    RenderProcessUnresponsive,
+}
+
+/// The type of a permission request.
+#[repr(u32)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum PermissionKind {
+    /// Unknown permission.
+    UnknownPermission,
+    /// Permission to capture audio.
+    Microphone,
+    /// Permission to capture video.
+    Camera,
+    /// Permission to access geolocation.
+    Geolocation,
+    /// Permission to send web notifications.
+    /// This permission request is currently auto rejected and
+    /// no event is fired for it.
+    Notifications,
+    /// Permission to access generic sensor.
+    /// Generic Sensor covering ambient-light-sensor, accelerometer, gyroscope
+    /// and magnetometer.
+    OtherSensors,
+    /// Permission to read system clipboard without a user gesture.
+    ClipboardRead,
+}
+
+/// Response to a permission request.
+#[repr(u32)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum PermissionState {
+    /// Use default browser behavior, which normally prompt users for decision.
+    Default,
+    /// Grant the permission request.
+    Allow,
+    /// Deny the permission request.
+    Deny,
+}
+
+/// Error status values for web navigations.
+#[repr(u32)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum WebErrorStatus {
+    /// An unknown error occurred.
+    Unknown,
+    /// The SSL certificate common name does not match the web address.
+    CertificateCommonNameIsIncorrect,
+    /// The SSL certificate has expired.
+    CertificateExpired,
+    /// The SSL client certificate contains errors.
+    ClientCertificateContainsErrors,
+    /// The SSL certificate has been revoked.
+    CertificateRevoked,
+    /// The SSL certificate is invalid -- this could mean the certificate did not
+    /// match the public key pins for the host name, the certificate is signed
+    /// by an untrusted authority or using a weak sign algorithm, the
+    /// certificate claimed DNS names violate name constraints, the certificate
+    /// contains a weak key, the certificate's validity period is too long, lack
+    /// of revocation information or revocation mechanism, non-unique host name,
+    /// lack of certificate transparency information, or the certificate is
+    /// chained to a [legacy Symantec
+    /// root](https://security.googleblog.com/2018/03/distrust-of-symantec-pki-immediate.html).
+    CertificateIsInvalid,
+    /// The host is unreachable.
+    ServerUnreachable,
+    /// The connection has timed out.
+    Timeout,
+    /// The server returned an invalid or unrecognized response.
+    ErrorHttpInvalidServerResponse,
+    /// The connection was aborted.
+    ConnectionAborted,
+    /// The connection was reset.
+    ConnectionReset,
+    /// The Internet connection has been lost.
+    Disconnected,
+    /// Cannot connect to destination.
+    CannotConnect,
+    /// Could not resolve provided host name.
+    HostNameNotResolved,
+    /// The operation was canceled.
+    OperationCanceled,
+    /// The request redirect failed.
+    RedirectFailed,
+    /// An unexpected error occurred.
+    UnexpectedError,
+}
+
+/// Enum for web resource request contexts.
+#[repr(u32)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum WebResourceContext {
+    /// All resources
+    All,
+    /// Document resources
+    Document,
+    /// CSS resources
+    Stylesheet,
+    /// Image resources
+    Image,
+    /// Other media resources such as videos
+    Media,
+    /// Font resources
+    Font,
+    /// Script resources
+    Script,
+    /// XML HTTP requests
+    XmlHttpRequest,
+    /// Fetch API communication
+    Fetch,
+    /// TextTrack resources
+    TextTrack,
+    /// EventSource API communication
+    EventSource,
+    /// WebSocket API communication
+    Websocket,
+    /// Web App Manifests
+    Manifest,
+    /// Signed HTTP Exchanges
+    SignedExchange,
+    /// Ping requests
+    Ping,
+    /// CSP Violation Reports
+    CspViolationReport,
+    /// Other resources
+    Other,
+}
+
+/// Reason for moving focus.
+#[repr(u32)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum MoveFocusReason {
+    /// Code setting focus into WebView.
+    Programmatic,
+    /// Moving focus due to Tab traversal forward.
+    Next,
+    /// Moving focus due to Tab traversal backward.
+    Previous,
+}
+
+/// The type of key event that triggered an AcceleratorKeyPressed event.
+#[repr(u32)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum KeyEventKind {
+    /// Correspond to window message WM_KEYDOWN.
+    KeyDown,
+    /// Correspond to window message WM_KEYUP.
+    KeyUp,
+    /// Correspond to window message WM_SYSKEYDOWN.
+    SystemKeyDown,
+    /// Correspond to window message WM_SYSKEYUP.
+    SystemKeyUp,
+}
+
 /// WebView2 enables you to host web content using the
 /// latest Edge web browser technology.
 ///
@@ -393,10 +589,10 @@ pub type FnCreateCoreWebView2EnvironmentWithDetails = unsafe extern "stdcall" fn
 /// Open DevTools with the normal shortcuts: `F12` or `Ctrl+Shift+I`.
 /// You can use the `--auto-open-devtools-for-tabs` command argument switch to
 /// have the DevTools window open immediately when first creating a WebView. See
-/// CreateCoreWebView2Host documentation for how to provide additional command
+/// CreateCoreWebView2Controller documentation for how to provide additional command
 /// line arguments to the browser process.
 /// Check out the LoaderOverride registry key for trying out different builds of
-/// WebView2 without modifying your application in the CreateCoreWebView2Host
+/// WebView2 without modifying your application in the CreateCoreWebView2Controller
 /// documentation.
 ///
 /// ## Versioning
@@ -421,7 +617,7 @@ pub type FnCreateCoreWebView2EnvironmentWithDetails = unsafe extern "stdcall" fn
 /// When an interface is unavailable, you can consider disabling the associated
 /// feature if possible, or otherwise informing the end user they need to update
 /// their browser.
-#[com_interface("5cc5293d-af6f-41d4-9619-44bd31ba4c93")]
+#[com_interface("189B8AAF-0426-4748-B9AD-243F537EB46B")]
 pub trait ICoreWebView2: IUnknown {
     /// The ICoreWebView2Settings object contains various modifiable settings for
     /// the running WebView.
@@ -505,7 +701,7 @@ pub trait ICoreWebView2: IUnknown {
     unsafe fn remove_source_changed(&self, /* in */ token: EventRegistrationToken) -> HRESULT;
 
     /// HistoryChange listen to the change of navigation history for the top level
-    /// document. Use HistoryChange to check if get_CanGoBack/get_CanGoForward value
+    /// document. Use HistoryChange to check if CanGoBack/CanGoForward value
     /// has changed. HistoryChanged also fires for using GoBack/GoForward.
     /// HistoryChanged fires after SourceChanged and ContentLoading.
     /// Add an event handler for the HistoryChanged event.
@@ -550,6 +746,23 @@ pub trait ICoreWebView2: IUnknown {
 
     /// Remove an event handler previously added with add_FrameNavigationStarting.
     unsafe fn remove_frame_navigation_starting(
+        &self,
+        /* in */ token: EventRegistrationToken,
+    ) -> HRESULT;
+
+    /// Add an event handler for the FrameNavigationCompleted event.
+    /// FrameNavigationCompleted event fires when a child frame has completely
+    /// loaded (body.onload has fired) or loading stopped with error.
+    ///
+    /// \snippet ControlCompnent.cpp FrameNavigationCompleted
+    unsafe fn add_frame_navigation_completed(
+        &self,
+        /* in */ event_handler: *mut *mut ICoreWebView2NavigationCompletedEventHandlerVTable,
+        /* out */ token: *mut EventRegistrationToken,
+    ) -> HRESULT;
+
+    /// Remove an event handler previously added with add_FrameNavigationCompleted.
+    unsafe fn remove_frame_navigation_completed(
         &self,
         /* in */ token: EventRegistrationToken,
     ) -> HRESULT;
@@ -767,11 +980,11 @@ pub trait ICoreWebView2: IUnknown {
     unsafe fn get_browser_process_id(&self, /* out, retval */ value: *mut UINT32) -> HRESULT;
 
     /// Returns true if the webview can navigate to a previous page in the navigation history.
-    /// The HistoryChanged event will fire if get_CanGoBack changes value.
+    /// The HistoryChanged event will fire if CanGoBack changes value.
     unsafe fn get_can_go_back(&self, /* out, retval */ can_go_back: *mut BOOL) -> HRESULT;
 
     /// Returns true if the webview can navigate to a next page in the navigation history.
-    /// The HistoryChanged event will fire if get_CanGoForward changes value.
+    /// The HistoryChanged event will fire if CanGoForward changes value.
     unsafe fn get_can_go_forward(
         &self,
         /* out, retval */ can_go_forward: *mut BOOL,
@@ -845,9 +1058,9 @@ pub trait ICoreWebView2: IUnknown {
 
     /// Add the provided host object to script running in the WebView with the
     /// specified name.
-    /// Host objects are exposed as remote object proxies via
-    /// `window.chrome.webview.remoteObjects.<name>`.
-    /// Remote object proxies are promises and will resolve to an object
+    /// Host objects are exposed as host object proxies via
+    /// `window.chrome.webview.hostObjects.<name>`.
+    /// Host object proxies are promises and will resolve to an object
     /// representing the host object.
     /// The promise is rejected if the app has not added an object with the name.
     /// When JavaScript code access a property or method of the object, a promise
@@ -859,12 +1072,12 @@ pub trait ICoreWebView2: IUnknown {
     ///    VARIANT object;
     ///    object.vt = VT_DISPATCH;
     ///    object.pdispVal = appObject;
-    ///    webview->AddRemoteObject(L"host_object", &host);
+    ///    webview->AddHostObjectToScript(L"host_object", &host);
     /// ```
     /// JavaScript code in the WebView will be able to access appObject as
     /// following and then access attributes and methods of appObject:
     /// ```
-    ///    let app_object = await window.chrome.webview.remoteObjects.host_object;
+    ///    let app_object = await window.chrome.webview.hostObjects.host_object;
     ///    let attr1 = await app_object.attr1;
     ///    let result = await app_object.method1(parameters);
     /// ```
@@ -879,105 +1092,105 @@ pub trait ICoreWebView2: IUnknown {
     /// VT_EMPTY and VT_NULL are mapped into JavaScript as null. In JavaScript
     /// null and undefined are mapped to VT_EMPTY.
     ///
-    /// Additionally, all remote objects are exposed as
-    /// `window.chrome.webview.remoteObjects.sync.<name>`. Here the host
-    /// objects are exposed as synchronous remote object proxies. These are not
+    /// Additionally, all host objects are exposed as
+    /// `window.chrome.webview.hostObjects.sync.<name>`. Here the host
+    /// objects are exposed as synchronous host object proxies. These are not
     /// promises and calls to functions or property access synchronously block
     /// running script waiting to communicate cross process for the host code to
     /// run. Accordingly this can result in reliability issues and it is
     /// recommended that you use the promise based asynchronous
-    /// `window.chrome.webview.remoteObjects.<name>` API described above.
+    /// `window.chrome.webview.hostObjects.<name>` API described above.
     ///
-    /// Synchronous remote object proxies and asynchronous remote object proxies
-    /// can both proxy the same remote object. Remote changes made by one proxy
-    /// will be reflected in any other proxy of that same remote object whether
+    /// Synchronous host object proxies and asynchronous host object proxies
+    /// can both proxy the same host object. Remote changes made by one proxy
+    /// will be reflected in any other proxy of that same host object whether
     /// the other proxies and synchronous or asynchronous.
     ///
     /// While JavaScript is blocked on a synchronous call to native code, that
     /// native code is unable to call back to JavaScript. Attempts to do so will
     /// fail with HRESULT_FROM_WIN32(ERROR_POSSIBLE_DEADLOCK).
     ///
-    /// Remote object proxies are JavaScript Proxy objects that intercept all
+    /// Host object proxies are JavaScript Proxy objects that intercept all
     /// property get, property set, and method invocations. Properties or methods
     /// that are a part of the Function or Object prototype are run locally.
     /// Additionally any property or method in the array
-    /// `chrome.webview.remoteObjects.options.forceLocalProperties` will also be
+    /// `chrome.webview.hostObjects.options.forceLocalProperties` will also be
     /// run locally. This defaults to including optional methods that have
     /// meaning in JavaScript like `toJSON` and `Symbol.toPrimitive`. You can add
     /// more to this array as required.
     ///
-    /// There's a method `chrome.webview.remoteObjects.cleanupSome` that will best
-    /// effort garbage collect remote object proxies.
+    /// There's a method `chrome.webview.hostObjects.cleanupSome` that will best
+    /// effort garbage collect host object proxies.
     ///
-    /// Remote object proxies additionally have the following methods which run
+    /// Host object proxies additionally have the following methods which run
     /// locally:
-    ///  * applyRemote, getRemote, setRemote: Perform a method invocation,
-    ///    property get, or property set on the remote object. You can use these
-    ///    to explicitly force a method or property to run remotely if there is
-    ///    a conflicting local method or property. For instance, `proxy.toString()`
-    ///    will run the local toString method on the proxy object. But
-    ///    ``proxy.applyRemote('toString')`` runs `toString` on the remote proxied
-    ///    object instead.
-    ///  * getLocal, setLocal: Perform property get, or property set locally. You
-    ///    can use these methods to force getting or setting a property on the
-    ///    remote object proxy itself rather than on the remote object it
-    ///    represents. For instance, `proxy.unknownProperty` will get the
-    ///    property named `unknownProperty` from the remote proxied object. But
-    ///    ``proxy.getLocal('unknownProperty')`` will get the value of the property
+    ///  * applyHostFunction, getHostProperty, setHostProperty: Perform a
+    ///    method invocation, property get, or property set on the host object.
+    ///    You can use these to explicitly force a method or property to run
+    ///    remotely if there is a conflicting local method or property. For
+    ///    instance, `proxy.toString()` will run the local toString method on the
+    ///    proxy object. But ``proxy.applyHostFunction('toString')`` runs
+    ///    `toString` on the host proxied object instead.
+    ///  * getLocalProperty, setLocalProperty: Perform property get, or property
+    ///    set locally. You can use these methods to force getting or setting a
+    ///    property on the host object proxy itself rather than on the host
+    ///    object it represents. For instance, `proxy.unknownProperty` will get the
+    ///    property named `unknownProperty` from the host proxied object. But
+    ///    ``proxy.getLocalProperty('unknownProperty')`` will get the value of the property
     ///    `unknownProperty` on the proxy object itself.
-    ///  * sync: Asynchronous remote object proxies expose a sync method which
-    ///    returns a promise for a synchronous remote object proxy for the same
-    ///    remote object. For example,
-    ///    `chrome.webview.remoteObjects.sample.methodCall()` returns an
-    ///    asynchronous remote object proxy. You can use the `sync` method to
-    ///    obtain a synchronous remote object proxy instead:
-    ///    `const syncProxy = await chrome.webview.remoteObjects.sample.methodCall().sync()`
-    ///  * async: Synchronous remote object proxies expose an async method which
-    ///    blocks and returns an asynchronous remote object proxy for the same
-    ///    remote object. For example, `chrome.webview.remoteObjects.sync.sample.methodCall()` returns a
-    ///    synchronous remote object proxy. Calling the `async` method on this blocks
-    ///    and then returns an asynchronous remote object proxy for the same remote object:
-    ///    `const asyncProxy = chrome.webview.remoteObjects.sync.sample.methodCall().async()`
-    ///  * then: Asynchronous remote object proxies have a then method. This
+    ///  * sync: Asynchronous host object proxies expose a sync method which
+    ///    returns a promise for a synchronous host object proxy for the same
+    ///    host object. For example,
+    ///    `chrome.webview.hostObjects.sample.methodCall()` returns an
+    ///    asynchronous host object proxy. You can use the `sync` method to
+    ///    obtain a synchronous host object proxy instead:
+    ///    `const syncProxy = await chrome.webview.hostObjects.sample.methodCall().sync()`
+    ///  * async: Synchronous host object proxies expose an async method which
+    ///    blocks and returns an asynchronous host object proxy for the same
+    ///    host object. For example, `chrome.webview.hostObjects.sync.sample.methodCall()` returns a
+    ///    synchronous host object proxy. Calling the `async` method on this blocks
+    ///    and then returns an asynchronous host object proxy for the same host object:
+    ///    `const asyncProxy = chrome.webview.hostObjects.sync.sample.methodCall().async()`
+    ///  * then: Asynchronous host object proxies have a then method. This
     ///    allows them to be awaitable. `then` will return a promise that resolves
-    ///    with a representation of the remote object. If the proxy represents a
+    ///    with a representation of the host object. If the proxy represents a
     ///    JavaScript literal then a copy of that is returned locally. If
     ///    the proxy represents a function then a non-awaitable proxy is returned.
     ///    If the proxy represents a JavaScript object with a mix of literal
     ///    properties and function properties, then the a copy of the object is
-    ///    returned with some properties as remote object proxies.
+    ///    returned with some properties as host object proxies.
     ///
     /// All other property and method invocations (other than the above Remote
     /// object proxy methods, forceLocalProperties list, and properties on
-    /// Function and Object prototypes) are run remotely. Asynchronous remote
+    /// Function and Object prototypes) are run remotely. Asynchronous host
     /// object proxies return a promise representing asynchronous completion of
     /// remotely invoking the method, or getting the property.
     /// The promise resolves after the remote operations complete and
     /// the promises resolve to the resulting value of the operation.
-    /// Synchronous remote object proxies work similarly but block JavaScript
+    /// Synchronous host object proxies work similarly but block JavaScript
     /// execution and wait for the remote operation to complete.
     ///
-    /// Setting a property on an asynchronous remote object proxy works slightly
+    /// Setting a property on an asynchronous host object proxy works slightly
     /// differently. The set returns immediately and the return value is the value
     /// that will be set. This is a requirement of the JavaScript Proxy object.
     /// If you need to asynchronously wait for the property set to complete, use
-    /// the setRemote method which returns a promise as described above.
+    /// the setHostProperty method which returns a promise as described above.
     /// Synchronous object property set property synchronously blocks until the
     /// property is set.
     ///
     /// For example, suppose you have a COM object with the following interface
     ///
-    /// \snippet RemoteObjectSample.idl AddRemoteObjectInterface
+    /// \snippet HostObjectSample.idl AddHostObjectInterface
     ///
     /// We can add an instance of this interface into our JavaScript with
-    /// `AddRemoteObject`. In this case we name it `sample`:
+    /// `AddHostObjectToScript`. In this case we name it `sample`:
     ///
-    /// \snippet ScenarioAddRemoteObject.cpp AddRemoteObject
+    /// \snippet ScenarioAddRemoteObject.cpp AddHostObjectToScript
     ///
-    /// Then in the HTML document we can use this COM object via `chrome.webview.remoteObjects.sample`:
+    /// Then in the HTML document we can use this COM object via `chrome.webview.hostObjects.sample`:
     ///
-    /// \snippet ScenarioAddRemoteObject.html RemoteObjectUsage
-    unsafe fn add_remote_object(
+    /// \snippet ScenarioAddRemoteObject.html HostObjectUsage
+    unsafe fn add_host_object_to_script(
         &self,
         /* in */ name: LPCWSTR,
         /* in */ object: *mut VARIANT,
@@ -990,7 +1203,7 @@ pub trait ICoreWebView2: IUnknown {
     /// continue to have access to that object.
     /// Calling this method for a name that is already removed or never added will
     /// fail.
-    unsafe fn remove_remote_object(&self, /* in */ name: LPCWSTR) -> HRESULT;
+    unsafe fn remove_host_object_from_script(&self, /* in */ name: LPCWSTR) -> HRESULT;
 
     /// Opens the DevTools window for the current document in the WebView.
     /// Does nothing if called when the DevTools window is already open
@@ -1046,7 +1259,7 @@ pub trait ICoreWebView2: IUnknown {
     /// Adds a URI and resource context filter to the WebResourceRequested event.
     /// URI parameter can be a wildcard string ('': zero or more, '?': exactly one).
     /// nullptr is equivalent to L"".
-    /// See CORE_WEBVIEW2_WEB_RESOURCE_CONTEXT enum for description of resource context filters.
+    /// See COREWEBVIEW2_WEB_RESOURCE_CONTEXT enum for description of resource context filters.
     unsafe fn add_web_resource_requested_filter(
         &self,
         /* in */ uri: LPCWSTR,
@@ -1083,179 +1296,17 @@ pub trait ICoreWebView2: IUnknown {
     ) -> HRESULT;
 }
 
-/// Image format used by the ICoreWebView2::CapturePreview method.
-#[repr(u32)]
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum CapturePreviewImageFormat {
-    /// PNG image format.
-    PNG,
-    /// JPEG image format.
-    JPEG,
-}
-
-/// Kind of JavaScript dialog used in the ICoreWebView2ScriptDialogOpeningEventHandler
-/// interface.
-#[repr(u32)]
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum ScriptDialogKind {
-    /// A dialog invoked via the window.alert JavaScript function.
-    Alert,
-    /// A dialog invoked via the window.confirm JavaScript function.
-    Confirm,
-    /// A dialog invoked via the window.prompt JavaScript function.
-    Prompt,
-    /// A dialog invoked via the beforeunload JavaScript event.
-    Beforeunload,
-}
-
-/// Kind of process failure used in the ICoreWebView2ProcessFailedEventHandler interface.
-#[repr(u32)]
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum ProcessFailedKind {
-    /// Indicates the browser process terminated unexpectedly.
-    /// The WebView automatically goes into the Closed state.
-    /// The app has to recreate a new WebView to recover from this failure.
-    BrowserProcessExited,
-    /// Indicates the render process terminated unexpectedly.
-    /// A new render process will be created automatically and navigated to an
-    /// error page.
-    /// The app can use Reload to try to recover from this failure.
-    RenderProcessExited,
-    /// Indicates the render process becomes unresponsive.
-    /// The app can try to navigate away from the page to recover from the
-    /// failure.
-    RenderProcessUnresponsive,
-}
-
-/// The type of a permission request.
-#[repr(u32)]
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum PermissionKind {
-    /// Unknown permission.
-    UnknownPermission,
-    /// Permission to capture audio.
-    Microphone,
-    /// Permission to capture video.
-    Camera,
-    /// Permission to access geolocation.
-    Geolocation,
-    /// Permission to send web notifications.
-    /// This permission request is currently auto rejected and
-    /// no event is fired for it.
-    Notifications,
-    /// Permission to access generic sensor.
-    /// Generic Sensor covering ambient-light-sensor, accelerometer, gyroscope
-    /// and magnetometer.
-    OtherSensors,
-    /// Permission to read system clipboard without a user gesture.
-    ClipboardRead,
-}
-
-/// Response to a permission request.
-#[repr(u32)]
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum PermissionState {
-    /// Use default browser behavior, which normally prompt users for decision.
-    Default,
-    /// Grant the permission request.
-    Allow,
-    /// Deny the permission request.
-    Deny,
-}
-
-/// Error status values for web navigations.
-#[repr(u32)]
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum WebErrorStatus {
-    /// An unknown error occurred.
-    Unknown,
-    /// The SSL certificate common name does not match the web address.
-    CertificateCommonNameIsIncorrect,
-    /// The SSL certificate has expired.
-    CertificateExpired,
-    /// The SSL client certificate contains errors.
-    ClientCertificateContainsErrors,
-    /// The SSL certificate has been revoked.
-    CertificateRevoked,
-    /// The SSL certificate is invalid -- this could mean the certificate did not
-    /// match the public key pins for the host name, the certificate is signed
-    /// by an untrusted authority or using a weak sign algorithm, the
-    /// certificate claimed DNS names violate name constraints, the certificate
-    /// contains a weak key, the certificate's validity period is too long, lack
-    /// of revocation information or revocation mechanism, non-unique host name,
-    /// lack of certificate transparency information, or the certificate is
-    /// chained to a [legacy Symantec
-    /// root](https://security.googleblog.com/2018/03/distrust-of-symantec-pki-immediate.html).
-    CertificateIsInvalid,
-    /// The host is unreachable.
-    ServerUnreachable,
-    /// The connection has timed out.
-    Timeout,
-    /// The server returned an invalid or unrecognized response.
-    ErrorHttpInvalidServerResponse,
-    /// The connection was aborted.
-    ConnectionAborted,
-    /// The connection was reset.
-    ConnectionReset,
-    /// The Internet connection has been lost.
-    Disconnected,
-    /// Cannot connect to destination.
-    CannotConnect,
-    /// Could not resolve provided host name.
-    HostNameNotResolved,
-    /// The operation was canceled.
-    OperationCanceled,
-    /// The request redirect failed.
-    RedirectFailed,
-    /// An unexpected error occurred.
-    UnexpectedError,
-}
-
-/// Enum for web resource request contexts.
-#[repr(u32)]
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum WebResourceContext {
-    /// All resources
-    All,
-    /// Document resources
-    Document,
-    /// CSS resources
-    Stylesheet,
-    /// Image resources
-    Image,
-    /// Other media resources such as videos
-    Media,
-    /// Font resources
-    Font,
-    /// Script resources
-    Script,
-    /// XML HTTP requests
-    XmlHttpRequest,
-    /// Fetch API communication
-    Fetch,
-    /// TextTrack resources
-    TextTrack,
-    EventSource,
-    Websocket,
-    Manifest,
-    SignedExchange,
-    Ping,
-    CspViolationReport,
-    /// Other resources
-    Other,
-}
-
 /// This interface is the owner of the CoreWebView2 object, and provides support
 /// for resizing, showing and hiding, focusing, and other functionality related
-/// to windowing and composition. The CoreWebView2Host owns the CoreWebView2,
-/// and if all references to the CoreWebView2Host go away, the WebView will
+/// to windowing and composition. The CoreWebView2Controller owns the CoreWebView2,
+/// and if all references to the CoreWebView2Controller go away, the WebView will
 /// be closed.
-#[com_interface("6ddf7138-a19b-4e55-8994-8a198b07f492")]
-pub trait ICoreWebView2Host: IUnknown {
+#[com_interface("7CCC5C7F-8351-4572-9077-9C1C80913835")]
+pub trait ICoreWebView2Controller: IUnknown {
     /// The IsVisible property determines whether to show or hide the webview.
     /// If IsVisible is set to false, the webview will be transparent and will
     /// not be rendered.  However, this will not affect the window containing
-    /// the webview (the HWND parameter that was passed to CreateCoreWebView2Host).
+    /// the webview (the HWND parameter that was passed to CreateCoreWebView2Controller).
     /// If you want that window to disappear too, call ShowWindow on it directly
     /// in addition to modifying the IsVisible property.
     /// WebView as a child window won't get window messages when the top window
@@ -1293,7 +1344,7 @@ pub trait ICoreWebView2Host: IUnknown {
     /// The zoom factor for the WebView.
     /// Note that changing zoom factor could cause `window.innerWidth/innerHeight`
     /// and page layout to change.
-    /// A zoom factor that is applied by the host by calling put_ZoomFactor
+    /// A zoom factor that is applied by the host by calling ZoomFactor
     /// becomes the new default zoom for the WebView. This zoom factor applies
     /// across navigations and is the zoom factor WebView is returned to when the
     /// user presses ctrl+0. When the zoom factor is changed by the user
@@ -1465,7 +1516,7 @@ pub trait ICoreWebView2Host: IUnknown {
 
     /// The parent window provided by the app that this WebView is using to
     /// render content. This API initially returns the window passed into
-    /// CreateCoreWebView2Host.
+    /// CreateCoreWebView2Controller.
     unsafe fn get_parent_window(
         &self,
         /* out, retval */ top_level_window: *mut HWND,
@@ -1475,10 +1526,10 @@ pub trait ICoreWebView2Host: IUnknown {
     /// reparent its window to the newly provided window.
     unsafe fn put_parent_window(&self, /* in */ top_level_window: HWND) -> HRESULT;
 
-    /// This is a notification separate from put_Bounds that tells WebView its
+    /// This is a notification separate from Bounds that tells WebView its
     /// parent (or any ancestor) HWND moved. This is needed for accessibility and
     /// certain dialogs in WebView to work correctly.
-    /// \snippet AppWindow.cpp NotifyParentWindowPositionChanged
+    /// \snippet ViewComponent.cpp NotifyParentWindowPositionChanged
     unsafe fn notify_parent_window_position_changed(&self) -> HRESULT;
 
     /// Closes the WebView and cleans up the underlying browser instance.
@@ -1489,7 +1540,7 @@ pub trait ICoreWebView2Host: IUnknown {
     /// will stop firing. Specifically, the WebView will release its references
     /// to its event handlers when Close is called.
     ///
-    /// Close is implicitly called when the CoreWebView2Host loses its final
+    /// Close is implicitly called when the CoreWebView2Controller loses its final
     /// reference and is destructed. But it is best practice to explicitly call
     /// Close to avoid any accidental cycle of references between the WebView
     /// and the app code. Specifically, if you capture a reference to the WebView
@@ -1502,62 +1553,16 @@ pub trait ICoreWebView2Host: IUnknown {
     /// \snippet AppWindow.cpp Close
     unsafe fn close(&self) -> HRESULT;
 
-    /// Gets the CoreWebView2 associated with this CoreWebView2Host.
+    /// Gets the CoreWebView2 associated with this CoreWebView2Controller.
     unsafe fn get_core_web_view2(
         &self,
         /* out, retval */ core_web_view2: *mut *mut *mut ICoreWebView2VTable,
     ) -> HRESULT;
 }
 
-/// Reason for moving focus.
-#[repr(u32)]
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum MoveFocusReason {
-    /// Code setting focus into WebView.
-    Programmatic,
-    /// Moving focus due to Tab traversal forward.
-    Next,
-    /// Moving focus due to Tab traversal backward.
-    Previous,
-}
-
-/// The type of key event that triggered an AcceleratorKeyPressed event.
-#[repr(u32)]
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum KeyEventKind {
-    /// Correspond to window message WM_KEYDOWN.
-    KeyDown,
-    /// Correspond to window message WM_KEYUP.
-    KeyUp,
-    /// Correspond to window message WM_SYSKEYDOWN.
-    SystemKeyDown,
-    /// Correspond to window message WM_SYSKEYUP.
-    SystemKeyUp,
-}
-
-/// A structure representing the information packed into the LPARAM given
-/// to a Win32 key event.  See the documentation for WM_KEYDOWN for details
-/// at https://docs.microsoft.com/windows/win32/inputdev/wm-keydown
-#[repr(C)]
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub struct PhysicalKeyStatus {
-    /// The repeat count for the current message.
-    pub repeat_count: UINT32,
-    /// The scan code.
-    pub scan_code: UINT32,
-    /// Indicates whether the key is an extended key.
-    pub is_extended_key: BOOL,
-    /// The context code.
-    pub is_menu_key_down: BOOL,
-    /// The previous key state.
-    pub was_key_down: BOOL,
-    /// The transition state.
-    pub is_key_released: BOOL,
-}
-
 /// This interface is used to complete deferrals on event args that
 /// support getting deferrals via their GetDeferral method.
-#[com_interface("C1000D7C-4817-40EB-A2AE-3B929D5A8EE3")]
+#[com_interface("A7ED8BF0-3EC9-4E39-8427-3D6F157BD285")]
 pub trait ICoreWebView2Deferral: IUnknown {
     /// Completes the associated deferred event. Complete should only be
     /// called once for each deferral taken.
@@ -1567,7 +1572,7 @@ pub trait ICoreWebView2Deferral: IUnknown {
 /// Defines properties that enable, disable, or modify WebView
 /// features. Setting changes made after NavigationStarting event will not
 /// apply until the next top level navigation.
-#[com_interface("D58A964A-13C4-44FB-81AD-64AE242E9ADC")]
+#[com_interface("203FBA37-6850-4DCC-A25A-58A351AC625D")]
 pub trait ICoreWebView2Settings: IUnknown {
     /// Controls if JavaScript execution is enabled in all future
     /// navigations in the WebView.  This only affects scripts in the document;
@@ -1670,7 +1675,7 @@ pub trait ICoreWebView2Settings: IUnknown {
     unsafe fn put_are_default_context_menus_enabled(&self, /* in */ enabled: BOOL) -> HRESULT;
 
     /// The AreRemoteObjectsAllowed property is used to control whether
-    /// remote objects are accessible from the page in webview. Defaults to TRUE.
+    /// host objects are accessible from the page in webview. Defaults to TRUE.
     ///
     /// \snippet SettingsComponent.cpp RemoteObjectsAccess
     unsafe fn get_are_remote_objects_allowed(
@@ -1684,7 +1689,7 @@ pub trait ICoreWebView2Settings: IUnknown {
     /// The IsZoomControlEnabled property is used to prevent the user from
     /// impacting the zoom of the WebView. Defaults to TRUE.
     /// When disabled, user will not be able to zoom using ctrl+/- or
-    /// ctrl+mouse wheel, but the zoom can be set via put_ZoomFactor API.
+    /// ctrl+mouse wheel, but the zoom can be set via ZoomFactor API.
     ///
     /// \snippet SettingsComponent.cpp DisableZoomControl
     unsafe fn get_is_zoom_control_enabled(
@@ -1694,10 +1699,23 @@ pub trait ICoreWebView2Settings: IUnknown {
 
     /// Set the IsZoomControlEnabled property
     unsafe fn put_is_zoom_control_enabled(&self, /* in */ enabled: BOOL) -> HRESULT;
+
+    /// The IsBuiltInErrorPageEnabled property is used to disable built in error
+    /// page for navigation failure and render process failure. Defaults to TRUE.
+    /// When disabled, blank page will be shown when related error happens.
+    ///
+    /// \snippet SettingsComponent.cpp BuiltInErrorPageEnabled
+    unsafe fn get_is_built_in_error_page_enabled(
+        &self,
+        /* out, retval */ enabled: *mut BOOL,
+    ) -> HRESULT;
+
+    /// Set the IsBuiltInErrorPageEnabled property
+    unsafe fn put_is_built_in_error_page_enabled(&self, /* in */ enabled: BOOL) -> HRESULT;
 }
 
 /// Event args for the ProcessFailed event.
-#[com_interface("9E354785-CFA2-480A-84E0-57837ADD8E36")]
+#[com_interface("EA45D1F4-75C0-471F-A6E9-803FBFF8FEF2")]
 pub trait ICoreWebView2ProcessFailedEventArgs: IUnknown {
     /// The kind of process failure that has occurred.
     unsafe fn get_process_failed_kind(
@@ -1707,7 +1725,7 @@ pub trait ICoreWebView2ProcessFailedEventArgs: IUnknown {
 }
 
 /// The caller implements this interface to receive ProcessFailed events.
-#[com_interface("A85C66A9-DE47-47F7-AD64-ABB32F1CF14D")]
+#[com_interface("7D2183F9-CCA8-40F2-91A9-EAFAD32C8A9B")]
 pub trait ICoreWebView2ProcessFailedEventHandler: IUnknown {
     /// Called to provide the implementer with the event args for the
     /// corresponding event.
@@ -1719,16 +1737,16 @@ pub trait ICoreWebView2ProcessFailedEventHandler: IUnknown {
 }
 
 /// The caller implements this interface to receive ZoomFactorChanged
-/// events. Use the ICoreWebView2Host.ZoomFactor property to get the
+/// events. Use the ICoreWebView2Controller.ZoomFactor property to get the
 /// modified zoom factor.
-#[com_interface("1B03A40F-92B7-443A-87E0-B65714B6CB9D")]
+#[com_interface("F1828246-8B98-4274-B708-ECDB6BF3843A")]
 pub trait ICoreWebView2ZoomFactorChangedEventHandler: IUnknown {
     /// Called to provide the implementer with the event args for the
     /// corresponding event. There are no event args and the args
     /// parameter will be null.
     unsafe fn invoke(
         &self,
-        /* in */ sender: *mut *mut ICoreWebView2HostVTable,
+        /* in */ sender: *mut *mut ICoreWebView2ControllerVTable,
         /* in */ args: *mut *mut IUnknownVTable,
     ) -> HRESULT;
 }
@@ -1736,7 +1754,7 @@ pub trait ICoreWebView2ZoomFactorChangedEventHandler: IUnknown {
 /// Iterator for a collection of HTTP headers. See ICoreWebView2HttpRequestHeaders
 /// and ICoreWebView2HttpResponseHeaders.
 /// \snippet ScenarioWebViewEventMonitor.cpp HttpRequestHeaderIterator
-#[com_interface("B0F8A736-CC49-4414-BB9C-FDBC02599622")]
+#[com_interface("4212F3A7-0FBC-4C9C-8118-17ED6370C1B3")]
 pub trait ICoreWebView2HttpHeadersCollectionIterator: IUnknown {
     /// Get the name and value of the current HTTP header of the iterator. This
     /// method will fail if the last call to MoveNext set has_next to FALSE.
@@ -1764,7 +1782,7 @@ pub trait ICoreWebView2HttpHeadersCollectionIterator: IUnknown {
 /// WebResourceRequested event and NavigationStarting event.
 /// Note, you can modify the HTTP request headers from a WebResourceRequested event,
 /// but not from a NavigationStarting event.
-#[com_interface("160B895B-D0AF-4A42-A14F-5571CFA68B03")]
+#[com_interface("2C1F04DF-C90E-49E4-BD25-4A659300337B")]
 pub trait ICoreWebView2HttpRequestHeaders: IUnknown {
     /// Gets the header value matching the name.
     unsafe fn get_header(
@@ -1808,7 +1826,7 @@ pub trait ICoreWebView2HttpRequestHeaders: IUnknown {
 
 /// HTTP response headers. Used to construct a WebResourceResponse for the
 /// WebResourceRequested event.
-#[com_interface("3E81928E-DDAE-4B3C-BCEF-DB2752BCFA1E")]
+#[com_interface("B5F6D4D5-1BFF-4869-85B8-158153017B04")]
 pub trait ICoreWebView2HttpResponseHeaders: IUnknown {
     /// Appends header line with name and value.
     unsafe fn append_header(
@@ -1848,7 +1866,7 @@ pub trait ICoreWebView2HttpResponseHeaders: IUnknown {
 }
 
 /// An HTTP request used with the WebResourceRequested event.
-#[com_interface("7471A125-D5E8-45A8-B119-F9E9230D4D0B")]
+#[com_interface("11B02254-B827-49F6-8974-30F6E6C55AF6")]
 pub trait ICoreWebView2WebResourceRequest: IUnknown {
     /// The request URI.
     unsafe fn get_uri(&self, /* out, retval */ uri: *mut LPWSTR) -> HRESULT;
@@ -1885,7 +1903,7 @@ pub trait ICoreWebView2WebResourceRequest: IUnknown {
 }
 
 /// An HTTP response used with the WebResourceRequested event.
-#[com_interface("2B842125-E3B4-40A2-8BB8-C31AABF70E0A")]
+#[com_interface("5953D1FC-B08F-46DD-AFD3-66B172419CD0")]
 pub trait ICoreWebView2WebResourceResponse: IUnknown {
     /// HTTP response content as stream. Stream must have all the
     /// content data available by the time this response's WebResourceRequested
@@ -1924,7 +1942,7 @@ pub trait ICoreWebView2WebResourceResponse: IUnknown {
 }
 
 /// Event args for the NavigationStarting event.
-#[com_interface("1C81A448-575B-44A1-9ABD-1B93A3DE9E03")]
+#[com_interface("EE1938CE-D385-4CB0-854B-F498F78C3D88")]
 pub trait ICoreWebView2NavigationStartingEventArgs: IUnknown {
     /// The uri of the requested navigation.
     unsafe fn get_uri(&self, /* out, retval */ uri: *mut LPWSTR) -> HRESULT;
@@ -1966,7 +1984,7 @@ pub trait ICoreWebView2NavigationStartingEventArgs: IUnknown {
 
 /// The caller implements this interface to receive the NavigationStarting
 /// event.
-#[com_interface("CD2F4CAE-BA09-47F3-94EE-A785CEC7C907")]
+#[com_interface("073337A4-64D2-4C7E-AC9F-987F0F613497")]
 pub trait ICoreWebView2NavigationStartingEventHandler: IUnknown {
     /// Called to provide the implementer with the event args for the
     /// corresponding event.
@@ -1978,7 +1996,7 @@ pub trait ICoreWebView2NavigationStartingEventHandler: IUnknown {
 }
 
 /// Event args for the ContentLoading event.
-#[com_interface("696ED8C1-4657-4769-928F-10EF8040ED25")]
+#[com_interface("2A800835-2179-45D6-A745-6657E9A546B9")]
 pub trait ICoreWebView2ContentLoadingEventArgs: IUnknown {
     /// True if the loaded content is an error page.
     unsafe fn get_is_error_page(&self, /* out, retval */ is_error_page: *mut BOOL) -> HRESULT;
@@ -1991,7 +2009,7 @@ pub trait ICoreWebView2ContentLoadingEventArgs: IUnknown {
 }
 
 /// The caller implements this interface to receive the ContentLoading event.
-#[com_interface("70057D5C-0BAA-4219-97B0-FFF1C088ED32")]
+#[com_interface("7AF5CC82-AE19-4964-BD71-B9BC5F03E85D")]
 pub trait ICoreWebView2ContentLoadingEventHandler: IUnknown {
     /// Called to provide the implementer with the event args for the
     /// corresponding event.
@@ -2003,7 +2021,7 @@ pub trait ICoreWebView2ContentLoadingEventHandler: IUnknown {
 }
 
 /// Event args for the SourceChanged event.
-#[com_interface("26D4B817-9496-4F67-AEAB-24EB38482037")]
+#[com_interface("BD9A4BFB-BE19-40BD-968B-EBCF0D727EF3")]
 pub trait ICoreWebView2SourceChangedEventArgs: IUnknown {
     /// True if the page being navigated to is a new document.
     unsafe fn get_is_new_document(
@@ -2013,7 +2031,7 @@ pub trait ICoreWebView2SourceChangedEventArgs: IUnknown {
 }
 
 /// The caller implements this interface to receive the SourceChanged event.
-#[com_interface("E345159A-B573-41AB-A4F7-F94CB238AF45")]
+#[com_interface("8FEDD1A7-3A33-416F-AF81-881EEB001433")]
 pub trait ICoreWebView2SourceChangedEventHandler: IUnknown {
     /// Called to provide the implementer with the event args for the
     /// corresponding event.
@@ -2025,7 +2043,7 @@ pub trait ICoreWebView2SourceChangedEventHandler: IUnknown {
 }
 
 /// The caller implements this interface to receive the HistoryChanged event.
-#[com_interface("29211B19-F775-48CC-9757-5DA3CA1F626A")]
+#[com_interface("54C9B7D7-D9E9-4158-861F-F97E1C3C6631")]
 pub trait ICoreWebView2HistoryChangedEventHandler: IUnknown {
     /// There are no event args and the args parameter will be null.
     unsafe fn invoke(
@@ -2036,7 +2054,7 @@ pub trait ICoreWebView2HistoryChangedEventHandler: IUnknown {
 }
 
 /// Event args for the ScriptDialogOpening event.
-#[com_interface("49C08E35-FCE1-4C6A-8DBD-6F58666C0CBE")]
+#[com_interface("B8F6356E-24DC-4D74-90FE-AD071E11CB91")]
 pub trait ICoreWebView2ScriptDialogOpeningEventArgs: IUnknown {
     /// The URI of the page that requested the dialog box.
     unsafe fn get_uri(&self, /* out, retval */ uri: *mut LPWSTR) -> HRESULT;
@@ -2057,7 +2075,7 @@ pub trait ICoreWebView2ScriptDialogOpeningEventArgs: IUnknown {
     unsafe fn accept(&self) -> HRESULT;
 
     /// The second parameter passed to the JavaScript prompt dialog. This is the
-    /// the default value to use for the result of the prompt JavaScript function.
+    /// default value to use for the result of the prompt JavaScript function.
     unsafe fn get_default_text(&self, /* out, retval */ default_text: *mut LPWSTR) -> HRESULT;
 
     /// The return value from the JavaScript prompt function if Accept is called.
@@ -2078,7 +2096,7 @@ pub trait ICoreWebView2ScriptDialogOpeningEventArgs: IUnknown {
 
 /// The caller implements this interface to receive the ScriptDialogOpening
 /// event.
-#[com_interface("E4CDFD7A-AA15-4738-8A8F-4C8C28A9BAC1")]
+#[com_interface("72D93789-2727-4A9B-A4FC-1B2609CBCBE3")]
 pub trait ICoreWebView2ScriptDialogOpeningEventHandler: IUnknown {
     /// Called to provide the implementer with the event args for the
     /// corresponding event.
@@ -2090,7 +2108,7 @@ pub trait ICoreWebView2ScriptDialogOpeningEventHandler: IUnknown {
 }
 
 /// Event args for the NavigationCompleted event.
-#[com_interface("1337EED4-BC5B-48FB-9672-80D18733CFD5")]
+#[com_interface("361F5621-EA7F-4C55-95EC-3C5E6992EA4A")]
 pub trait ICoreWebView2NavigationCompletedEventArgs: IUnknown {
     /// True when the navigation is successful. This
     /// is false for a navigation that ended up in an error page (failures due to
@@ -2102,7 +2120,7 @@ pub trait ICoreWebView2NavigationCompletedEventArgs: IUnknown {
     /// The error code if the navigation failed.
     unsafe fn get_web_error_status(
         &self,
-        /* out, retval */ core_webview2_web_error_status: *mut WebErrorStatus,
+        /* out, retval */ corewebview2_web_error_status: *mut WebErrorStatus,
     ) -> HRESULT;
 
     /// The ID of the navigation.
@@ -2114,7 +2132,7 @@ pub trait ICoreWebView2NavigationCompletedEventArgs: IUnknown {
 
 /// The caller implements this interface to receive the NavigationCompleted
 /// event.
-#[com_interface("17EB2F75-B65B-4E5F-A0E1-933126DDD5BB")]
+#[com_interface("9F921239-20C4-455F-9E3F-6047A50E248B")]
 pub trait ICoreWebView2NavigationCompletedEventHandler: IUnknown {
     /// Called to provide the implementer with the event args for the
     /// corresponding event.
@@ -2126,7 +2144,7 @@ pub trait ICoreWebView2NavigationCompletedEventHandler: IUnknown {
 }
 
 /// Event args for the PermissionRequested event.
-#[com_interface("DBB6C9C9-FBB5-40FD-8843-5BE65807FD8A")]
+#[com_interface("774B5EA1-3FAD-435C-B1FC-A77D1ACD5EAF")]
 pub trait ICoreWebView2PermissionRequestedEventArgs: IUnknown {
     /// The origin of the web content that requests the permission.
     unsafe fn get_uri(&self, /* out, retval */ uri: *mut LPWSTR) -> HRESULT;
@@ -2146,7 +2164,7 @@ pub trait ICoreWebView2PermissionRequestedEventArgs: IUnknown {
     ) -> HRESULT;
 
     /// The status of a permission request, i.e. whether the request is granted.
-    /// Default value is CORE_WEBVIEW2_PERMISSION_STATE_DEFAULT.
+    /// Default value is COREWEBVIEW2_PERMISSION_STATE_DEFAULT.
     unsafe fn get_state(&self, /* out, retval */ value: *mut PermissionState) -> HRESULT;
 
     /// Set the State property.
@@ -2163,7 +2181,7 @@ pub trait ICoreWebView2PermissionRequestedEventArgs: IUnknown {
 
 /// The caller implements this interface to receive the PermissionRequested
 /// event.
-#[com_interface("7079A1F0-CF14-4046-8E26-46BF54163673")]
+#[com_interface("543B4ADE-9B0B-4748-9AB7-D76481B223AA")]
 pub trait ICoreWebView2PermissionRequestedEventHandler: IUnknown {
     /// Called to provide the implementer with the event args for the
     /// corresponding event.
@@ -2176,7 +2194,7 @@ pub trait ICoreWebView2PermissionRequestedEventHandler: IUnknown {
 
 /// The caller implements this interface to receive the result of the
 /// AddScriptToExecuteOnDocumentCreated method.
-#[com_interface("8889C588-9DC7-4266-9BB3-369AFDDE2A7F")]
+#[com_interface("7082ABED-0591-428F-A722-60C2F814546B")]
 pub trait ICoreWebView2AddScriptToExecuteOnDocumentCreatedCompletedHandler: IUnknown {
     /// Called to provide the implementer with the completion status and result
     /// of the corresponding asynchronous method call.
@@ -2189,7 +2207,7 @@ pub trait ICoreWebView2AddScriptToExecuteOnDocumentCreatedCompletedHandler: IUnk
 
 /// The caller implements this interface to receive the result of the
 /// ExecuteScript method.
-#[com_interface("51457AE2-93FD-404E-A957-3D6034EAD733")]
+#[com_interface("3B717C93-3ED5-4450-9B13-7F56AA367AC7")]
 pub trait ICoreWebView2ExecuteScriptCompletedHandler: IUnknown {
     /// Called to provide the implementer with the completion status and result
     /// of the corresponding asynchronous method call.
@@ -2201,7 +2219,7 @@ pub trait ICoreWebView2ExecuteScriptCompletedHandler: IUnknown {
 }
 
 /// Event args for the WebResourceRequested event.
-#[com_interface("6EF9912F-5A9D-42A9-8C17-9BB53E1D5C63")]
+#[com_interface("2D7B3282-83B1-41CA-8BBF-FF18F6BFE320")]
 pub trait ICoreWebView2WebResourceRequestedEventArgs: IUnknown {
     /// The HTTP request.
     unsafe fn get_request(
@@ -2238,7 +2256,7 @@ pub trait ICoreWebView2WebResourceRequestedEventArgs: IUnknown {
 
 /// Fires when an HTTP request is made in the webview. The host can override
 /// request, response headers and response content.
-#[com_interface("A8DC0663-3C2C-4190-8129-5F1F598CA7B8")]
+#[com_interface("F6DC79F2-E1FA-4534-8968-4AFF10BBAA32")]
 pub trait ICoreWebView2WebResourceRequestedEventHandler: IUnknown {
     /// Called to provide the implementer with the event args for the
     /// corresponding event.
@@ -2252,7 +2270,7 @@ pub trait ICoreWebView2WebResourceRequestedEventHandler: IUnknown {
 /// The caller implements this method to receive the result of the
 /// CapturePreview method. The result is written to the stream provided in
 /// the CapturePreview method call.
-#[com_interface("A1A2EC1C-B5C3-4EB2-9BCB-9166AFAA0E85")]
+#[com_interface("DCED64F8-D9C7-4A3C-B9FD-FBBCA0B43496")]
 pub trait ICoreWebView2CapturePreviewCompletedHandler: IUnknown {
     /// Called to provide the implementer with the completion status
     /// of the corresponding asynchronous method call.
@@ -2261,20 +2279,20 @@ pub trait ICoreWebView2CapturePreviewCompletedHandler: IUnknown {
 
 /// The caller implements this method to receive the GotFocus and LostFocus
 /// events. There are no event args for this event.
-#[com_interface("19F31771-9BB5-422B-9A0A-6EDDAF4FFE0F")]
+#[com_interface("76E67C71-663F-4C17-B71A-9381CCF3B94B")]
 pub trait ICoreWebView2FocusChangedEventHandler: IUnknown {
     /// Called to provide the implementer with the event args for the
     /// corresponding event. There are no event args and the args
     /// parameter will be null.
     unsafe fn invoke(
         &self,
-        /* in */ sender: *mut *mut ICoreWebView2HostVTable,
+        /* in */ sender: *mut *mut ICoreWebView2ControllerVTable,
         /* in */ args: *mut *mut IUnknownVTable,
     ) -> HRESULT;
 }
 
 /// Event args for the MoveFocusRequested event.
-#[com_interface("CE31A597-E202-49B9-A9BE-825481ED517E")]
+#[com_interface("71922903-B180-49D0-AED2-C9F9D10064B1")]
 pub trait ICoreWebView2MoveFocusRequestedEventArgs: IUnknown {
     /// The reason for WebView to fire the MoveFocus Requested event.
     unsafe fn get_reason(&self, /* out, retval */ value: *mut MoveFocusReason) -> HRESULT;
@@ -2294,19 +2312,19 @@ pub trait ICoreWebView2MoveFocusRequestedEventArgs: IUnknown {
 }
 
 /// The caller implements this method to receive the MoveFocusRequested event.
-#[com_interface("01BA7131-3DBE-4C83-A789-99C467A2C3F5")]
+#[com_interface("4B21D6DD-3DE7-47B0-8019-7D3ACE6E3631")]
 pub trait ICoreWebView2MoveFocusRequestedEventHandler: IUnknown {
     /// Called to provide the implementer with the event args for the
     /// corresponding event.
     unsafe fn invoke(
         &self,
-        /* in */ sender: *mut *mut ICoreWebView2HostVTable,
+        /* in */ sender: *mut *mut ICoreWebView2ControllerVTable,
         /* in */ args: *mut *mut ICoreWebView2MoveFocusRequestedEventArgsVTable,
     ) -> HRESULT;
 }
 
 /// Event args for the WebMessageReceived event.
-#[com_interface("B21D70E2-942E-44EB-B843-22C156FDE288")]
+#[com_interface("B263B5AE-9C54-4B75-B632-40AE1A0B6912")]
 pub trait ICoreWebView2WebMessageReceivedEventArgs: IUnknown {
     /// The URI of the document that sent this web message.
     unsafe fn get_source(&self, /* out, retval */ source: *mut LPWSTR) -> HRESULT;
@@ -2348,7 +2366,7 @@ pub trait ICoreWebView2WebMessageReceivedEventArgs: IUnknown {
 
 /// The caller implements this interface to receive the WebMessageReceived
 /// event.
-#[com_interface("ABABDC66-DF8D-487D-A737-7B25E8F835AA")]
+#[com_interface("199328C8-9964-4F5F-84E6-E875B1B763D6")]
 pub trait ICoreWebView2WebMessageReceivedEventHandler: IUnknown {
     /// Called to provide the implementer with the event args for the
     /// corresponding event.
@@ -2360,7 +2378,7 @@ pub trait ICoreWebView2WebMessageReceivedEventHandler: IUnknown {
 }
 
 /// Event args for the DevToolsProtocolEventReceived event.
-#[com_interface("7EF09904-8B46-4FE1-87FF-5A28EFAF7723")]
+#[com_interface("F661B1C2-5FF5-4700-B723-C439034539B4")]
 pub trait ICoreWebView2DevToolsProtocolEventReceivedEventArgs: IUnknown {
     /// The parameter object of the corresponding DevToolsProtocol event
     /// represented as a JSON string.
@@ -2372,7 +2390,7 @@ pub trait ICoreWebView2DevToolsProtocolEventReceivedEventArgs: IUnknown {
 
 /// The caller implements this interface to receive
 /// DevToolsProtocolEventReceived events from the WebView.
-#[com_interface("8B0DF849-2D94-47FB-8072-FE7A4D5FBA6A")]
+#[com_interface("8E1DED79-A40B-4271-8BE6-57640C167F4A")]
 pub trait ICoreWebView2DevToolsProtocolEventReceivedEventHandler: IUnknown {
     /// Called to provide the implementer with the event args for the
     /// corresponding event.
@@ -2385,7 +2403,7 @@ pub trait ICoreWebView2DevToolsProtocolEventReceivedEventHandler: IUnknown {
 
 /// The caller implements this interface to receive CallDevToolsProtocolMethod
 /// completion results.
-#[com_interface("B7627F5F-8723-4ED3-AC20-F93104CDEA51")]
+#[com_interface("C20CF895-BA7C-493B-AB2E-8A6E3A3602A2")]
 pub trait ICoreWebView2CallDevToolsProtocolMethodCompletedHandler: IUnknown {
     /// Called to provide the implementer with the completion status and result
     /// of the corresponding asynchronous method call.
@@ -2396,22 +2414,22 @@ pub trait ICoreWebView2CallDevToolsProtocolMethodCompletedHandler: IUnknown {
     ) -> HRESULT;
 }
 
-/// The caller implements this interface to receive the CoreWebView2Host created
-/// via CreateCoreWebView2Host.
-#[com_interface("E09F5D38-91E3-49D1-8182-70A616AA06B9")]
-pub trait ICoreWebView2CreateCoreWebView2HostCompletedHandler: IUnknown {
+/// The caller implements this interface to receive the CoreWebView2Controller created
+/// via CreateCoreWebView2Controller.
+#[com_interface("86EF6808-3C3F-4C6F-975E-8CE0B98F70BA")]
+pub trait ICoreWebView2CreateCoreWebView2ControllerCompletedHandler: IUnknown {
     /// Called to provide the implementer with the completion status and result
     /// of the corresponding asynchronous method call.
     unsafe fn invoke(
         &self,
         result: HRESULT,
-        created_host: *mut *mut ICoreWebView2HostVTable,
+        created_controller: *mut *mut ICoreWebView2ControllerVTable,
     ) -> HRESULT;
 }
 
 /// Event args for the NewWindowRequested event. The event is fired when content
-/// inside webview requested to a open a new window (through window.open() etc.)
-#[com_interface("DDBF77B3-3411-44AB-AA15-FDFC93AFFCF8")]
+/// inside webview requested to a open a new window (through window.open() and so on.)
+#[com_interface("9EDC7F5F-C6EA-4F3C-827B-A8880794C0A9")]
 pub trait ICoreWebView2NewWindowRequestedEventArgs: IUnknown {
     /// The target uri of the NewWindowRequest.
     unsafe fn get_uri(&self, /* out, retval */ uri: *mut LPWSTR) -> HRESULT;
@@ -2461,7 +2479,7 @@ pub trait ICoreWebView2NewWindowRequestedEventArgs: IUnknown {
 
 /// The caller implements this interface to receive NewWindowRequested
 /// events.
-#[com_interface("715E10DD-2323-4F03-B6B3-AB34006B96D5")]
+#[com_interface("ACAA30EF-A40C-47BD-9CB9-D9C2AADC9FCB")]
 pub trait ICoreWebView2NewWindowRequestedEventHandler: IUnknown {
     /// Called to provide the implementer with the event args for the
     /// corresponding event.
@@ -2475,7 +2493,7 @@ pub trait ICoreWebView2NewWindowRequestedEventHandler: IUnknown {
 /// The caller implements this interface to receive DocumentTitleChanged
 /// events. Use the DocumentTitle property to get the modified
 /// title.
-#[com_interface("CF313728-68BC-4577-9A35-08E660544AD9")]
+#[com_interface("6423D6B1-5A57-46C5-BA46-DBB3735EE7C9")]
 pub trait ICoreWebView2DocumentTitleChangedEventHandler: IUnknown {
     /// Called to provide the implementer with the event args for the
     /// corresponding event. There are no event args and the args
@@ -2488,7 +2506,7 @@ pub trait ICoreWebView2DocumentTitleChangedEventHandler: IUnknown {
 }
 
 /// Event args for the AcceleratorKeyPressed event.
-#[com_interface("AF1587DD-E2FF-4BFF-8C1A-699D6D34C683")]
+#[com_interface("9224476E-D8C3-4EB7-BB65-2FD7792B27CE")]
 pub trait ICoreWebView2AcceleratorKeyPressedEventArgs: IUnknown {
     /// The key event type that caused the event to be fired.
     unsafe fn get_key_event_kind(
@@ -2527,42 +2545,33 @@ pub trait ICoreWebView2AcceleratorKeyPressedEventArgs: IUnknown {
 
 /// The caller implements this interface to receive the AcceleratorKeyPressed
 /// event.
-#[com_interface("253D0AA2-6F85-4FB2-9D6B-0DC5FEDBB085")]
+#[com_interface("A7D303F9-503C-4B7E-BC40-5C7CE6CABAAA")]
 pub trait ICoreWebView2AcceleratorKeyPressedEventHandler: IUnknown {
     /// Called to provide the implementer with the event args for the
     /// corresponding event.
     unsafe fn invoke(
         &self,
-        /* in */ sender: *mut *mut ICoreWebView2HostVTable,
+        /* in */ sender: *mut *mut ICoreWebView2ControllerVTable,
         /* in */ args: *mut *mut ICoreWebView2AcceleratorKeyPressedEventArgsVTable,
     ) -> HRESULT;
 }
 
-/// Event args for the NewBrowserVersionAvailable event.
-#[com_interface("5A86C3E7-511B-4F99-BC20-8A8ED5449C12")]
-pub trait ICoreWebView2NewBrowserVersionAvailableEventArgs: IUnknown {
-    /// The browser version info of the current ICoreWebView2Environment
-    unsafe fn get_new_version(&self, /* out, retval */ new_version: *mut LPWSTR) -> HRESULT;
-}
-
 /// The caller implements this interface to receive NewBrowserVersionAvailable events.
-/// Use the get_NewVersion method of ICoreWebView2NewBrowserVersionAvailableEventArgs
-/// to get the new version number.
-#[com_interface("865E16C4-A24D-4AC1-BC23-2E608CA313F9")]
+#[com_interface("E82E8242-EE39-4A57-A065-E13256D60342")]
 pub trait ICoreWebView2NewBrowserVersionAvailableEventHandler: IUnknown {
     /// Called to provide the implementer with the event args for the
     /// corresponding event.
     unsafe fn invoke(
         &self,
         /* in */ webview_environment: *mut *mut ICoreWebView2EnvironmentVTable,
-        /* in */ args: *mut *mut ICoreWebView2NewBrowserVersionAvailableEventArgsVTable,
+        /* in */ args: *mut *mut IUnknownVTable,
     ) -> HRESULT;
 }
 
 /// The caller implements this method to receive the
 /// ContainsFullScreenElementChanged events. There are no event args for this
 /// event.
-#[com_interface("EC2AF7C6-4579-40AB-8C36-5CCEE58EB7CB")]
+#[com_interface("120888E3-4CAD-4EC2-B627-B2016D05612D")]
 pub trait ICoreWebView2ContainsFullScreenElementChangedEventHandler: IUnknown {
     /// Called to provide the implementer with the event args for the
     /// corresponding event. There are no event args and the args
@@ -2576,7 +2585,7 @@ pub trait ICoreWebView2ContainsFullScreenElementChangedEventHandler: IUnknown {
 
 /// The caller implements this interface to receive NewWindowRequested
 /// events.
-#[com_interface("1AE0297A-9671-4ED6-902A-4544B9B4AECD")]
+#[com_interface("63C89928-AD32-4421-A0E4-EC99B34AA97E")]
 pub trait ICoreWebView2WindowCloseRequestedEventHandler: IUnknown {
     /// Called to provide the implementer with the event args for the
     /// corresponding event. There are no event args and the args
@@ -2592,7 +2601,7 @@ pub trait ICoreWebView2WindowCloseRequestedEventHandler: IUnknown {
 /// environment run on the Browser process specified with environment parameters
 /// and objects created from an environment should be used in the same environment.
 /// Using it in different environments are not guaranteed to be compatible and may fail.
-#[com_interface("7dc2ec84-56cb-4fcc-b4c6-a9f85c7b2894")]
+#[com_interface("DA66D884-6DA8-410E-9630-8C48F8B3A40E")]
 pub trait ICoreWebView2Environment: IUnknown {
     /// Asynchronously create a new WebView.
     ///
@@ -2605,7 +2614,7 @@ pub trait ICoreWebView2Environment: IUnknown {
     /// the process or the application window. If none is set, during WebView
     /// creation a generated Application User Model ID is set to root window of
     /// parentWindow.
-    /// \snippet AppWindow.cpp CreateCoreWebView2Host
+    /// \snippet AppWindow.cpp CreateCoreWebView2Controller
     ///
     /// It is recommended that the application handles restart manager messages
     /// so that it can be restarted gracefully in the case when the app is using
@@ -2615,10 +2624,22 @@ pub trait ICoreWebView2Environment: IUnknown {
     /// Edge from that channel without closing the app, the app will be restarted
     /// to allow uninstallation of the dev channel to succeed.
     /// \snippet AppWindow.cpp RestartManager
-    unsafe fn create_core_web_view2_host(
+    ///
+    /// When the application retries CreateCoreWebView2Controller upon failure, it is
+    /// recommended that the application restarts from creating a new WebView2
+    /// Environment. If an Edge update happens, the version associated with a WebView2
+    /// Environment could have been removed and causing the object to no longer work.
+    /// Creating a new WebView2 Environment will work as it uses the latest version.
+    ///
+    /// WebView creation will fail if there is already a running instance using the same
+    /// user data folder, and the Environment objects have different EnvironmentOptions.
+    /// For example, if there is already a WebView created with one language, trying to
+    /// create a WebView with a different language using the same user data folder will
+    /// fail.
+    unsafe fn create_core_web_view2_controller(
         &self,
         parent_window: HWND,
-        handler: *mut *mut ICoreWebView2CreateCoreWebView2HostCompletedHandlerVTable,
+        handler: *mut *mut ICoreWebView2CreateCoreWebView2ControllerCompletedHandlerVTable,
     ) -> HRESULT;
 
     /// Create a new web resource response object. The headers is the
@@ -2639,11 +2660,12 @@ pub trait ICoreWebView2Environment: IUnknown {
 
     /// The browser version info of the current ICoreWebView2Environment,
     /// including channel name if it is not the stable channel.
-    /// This matches the format of the GetCoreWebView2BrowserVersionInfo API.
+    /// This matches the format of the
+    /// GetAvailableCoreWebView2BrowserVersionString API.
     /// Channel names are 'beta', 'dev', and 'canary'.
     ///
-    /// \snippet AppWindow.cpp GetBrowserVersionInfo
-    unsafe fn get_browser_version_info(
+    /// \snippet AppWindow.cpp GetBrowserVersionString
+    unsafe fn get_browser_version_string(
         &self,
         /* out, retval */ version_info: *mut LPWSTR,
     ) -> HRESULT;
@@ -2679,9 +2701,77 @@ pub trait ICoreWebView2Environment: IUnknown {
     ) -> HRESULT;
 }
 
+/// Options used to create WebView2 Environment.
+/// A default implementation is provided in WebView2EnvironmentOptions.h.
+///
+/// \snippet AppWindow.cpp CreateCoreWebView2EnvironmentWithOptions
+///
+#[com_interface("97E9FBD9-646A-4B75-8682-149B71DACE59")]
+pub trait ICoreWebView2EnvironmentOptions: IUnknown {
+    /// AdditionalBrowserArguments can be specified to change the behavior of the
+    /// WebView. These will be passed to the browser process as part of
+    /// the command line. See
+    /// [Run Chromium with Flags](https://aka.ms/RunChromiumWithFlags)
+    /// for more information about command line switches to browser
+    /// process. If the app is launched with a command line switch
+    /// `--edge-webview-switches=xxx` the value of that switch (xxx in
+    /// the above example) will also be appended to the browser
+    /// process command line. Certain switches like `--user-data-dir` are
+    /// internal and important to WebView. Those switches will be
+    /// ignored even if specified. If the same switches are specified
+    /// multiple times, the last one wins. There is no attempt to
+    /// merge the different values of the same switch, except for disabled
+    /// and enabled features.  The features specified by `--enable-features`
+    /// and `--disable-features` will be merged with simple logic: the features
+    /// will be the union of the specified features and built-in features, and if
+    /// a feature is disabled, it will be removed from the enabled features list.
+    /// App process's command line `--edge-webview-switches` value are processed
+    /// after the additionalBrowserArguments parameter is processed. Certain
+    /// features are disabled internally and can't be enabled.
+    /// If parsing failed for the specified switches, they will be
+    /// ignored. Default is to run browser process with no extra flags.
+    unsafe fn get_additional_browser_arguments(
+        &self,
+        /* out, retval */ value: *mut LPWSTR,
+    ) -> HRESULT;
+
+    /// Set the AdditionalBrowserArguments property.
+    unsafe fn put_additional_browser_arguments(&self, /* in */ value: LPCWSTR) -> HRESULT;
+
+    /// The default language that WebView will run with. It applies to browser UIs
+    /// like context menu and dialogs. It also applies to the accept-languages
+    /// HTTP header that WebView sends to web sites.
+    /// It is in the format of `language[-country]` where `language` is the 2 letter
+    /// code from ISO 639 and `country` is the 2 letter code from ISO 3166.
+    unsafe fn get_language(&self, /* out, retval */ value: *mut LPWSTR) -> HRESULT;
+
+    /// Set the Language property.
+    unsafe fn put_language(&self, /* in */ value: LPCWSTR) -> HRESULT;
+
+    /// The version of the Edge WebView2 Runtime binaries required to be
+    /// compatible with the calling application. This defaults to the Edge
+    /// WebView2 Runtime version
+    /// that corresponds with the version of the SDK the application is using.
+    /// The format of this value is the same as the format of the
+    /// BrowserVersionString property and other BrowserVersion values.
+    /// Only the version part of the BrowserVersion value is respected. The
+    /// channel suffix, if it exists, is ignored.
+    /// The version of the Edge WebView2 Runtime binaries actually used may be
+    /// different from the specified TargetCompatibleBrowserVersion. They are only
+    /// guarenteed to be compatible. You can check the actual version on the
+    /// BrowserVersionString property on the ICoreWebView2Environment.
+    unsafe fn get_target_compatible_browser_version(
+        &self,
+        /* out, retval */ value: *mut LPWSTR,
+    ) -> HRESULT;
+
+    /// Set the TargetCompatibleBrowserVersion.
+    unsafe fn put_target_compatible_browser_version(&self, /* in */ value: LPCWSTR) -> HRESULT;
+}
+
 /// The caller implements this interface to receive the WebView2Environment created
 /// via CreateCoreWebView2Environment.
-#[com_interface("7ED79562-90E1-47CD-A4E0-01D9211D7E3D")]
+#[com_interface("8B4F98CE-DB0D-4E71-85FD-C4C4EF1F2630")]
 pub trait ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler: IUnknown {
     /// Called to provide the implementer with the completion status and result
     /// of the corresponding asynchronous method call.
@@ -2695,7 +2785,7 @@ pub trait ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler: IUnknown {
 /// A Receiver is created for a particular DevTools Protocol event and allows
 /// you to subscribe and unsubsribe from that event.
 /// Obtained from the WebView object via GetDevToolsProtocolEventReceiver.
-#[com_interface("13FC668D-1F6D-4955-A4F4-D1EE7DEB5B74")]
+#[com_interface("FE59C48C-540C-4A3C-8898-8E1602E0055D")]
 pub trait ICoreWebView2DevToolsProtocolEventReceiver: IUnknown {
     /// Subscribe to a DevToolsProtocol event.
     /// The handler's Invoke method will be called whenever the corresponding

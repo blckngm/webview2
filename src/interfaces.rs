@@ -24,26 +24,26 @@ impl WebView {
     }
 }
 
-/// Wrapper for `ICoreWebView2Host`.
+/// Wrapper for `ICoreWebView2Controller`.
 #[derive(Clone)]
-pub struct Host {
-    inner: ComRc<dyn ICoreWebView2Host>,
+pub struct Controller {
+    inner: ComRc<dyn ICoreWebView2Controller>,
 }
-impl From<ComRc<dyn ICoreWebView2Host>> for Host {
-    fn from(inner: ComRc<dyn ICoreWebView2Host>) -> Self {
+impl From<ComRc<dyn ICoreWebView2Controller>> for Controller {
+    fn from(inner: ComRc<dyn ICoreWebView2Controller>) -> Self {
         Self { inner }
     }
 }
-impl fmt::Debug for Host {
+impl fmt::Debug for Controller {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Host").finish()
+        f.debug_struct("Controller").finish()
     }
 }
-impl Host {
-    pub fn into_inner(self) -> ComRc<dyn ICoreWebView2Host> {
+impl Controller {
+    pub fn into_inner(self) -> ComRc<dyn ICoreWebView2Controller> {
         self.inner
     }
-    pub fn as_inner(&self) -> &ComRc<dyn ICoreWebView2Host> {
+    pub fn as_inner(&self) -> &ComRc<dyn ICoreWebView2Controller> {
         &self.inner
     }
 }
@@ -461,14 +461,17 @@ impl WebMessageReceivedEventArgs {
 pub struct DevToolsProtocolEventReceivedEventArgs {
     inner: ComRc<dyn ICoreWebView2DevToolsProtocolEventReceivedEventArgs>,
 }
-impl From<ComRc<dyn ICoreWebView2DevToolsProtocolEventReceivedEventArgs>> for DevToolsProtocolEventReceivedEventArgs {
+impl From<ComRc<dyn ICoreWebView2DevToolsProtocolEventReceivedEventArgs>>
+    for DevToolsProtocolEventReceivedEventArgs
+{
     fn from(inner: ComRc<dyn ICoreWebView2DevToolsProtocolEventReceivedEventArgs>) -> Self {
         Self { inner }
     }
 }
 impl fmt::Debug for DevToolsProtocolEventReceivedEventArgs {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("DevToolsProtocolEventReceivedEventArgs").finish()
+        f.debug_struct("DevToolsProtocolEventReceivedEventArgs")
+            .finish()
     }
 }
 impl DevToolsProtocolEventReceivedEventArgs {
@@ -509,7 +512,9 @@ impl NewWindowRequestedEventArgs {
 pub struct AcceleratorKeyPressedEventArgs {
     inner: ComRc<dyn ICoreWebView2AcceleratorKeyPressedEventArgs>,
 }
-impl From<ComRc<dyn ICoreWebView2AcceleratorKeyPressedEventArgs>> for AcceleratorKeyPressedEventArgs {
+impl From<ComRc<dyn ICoreWebView2AcceleratorKeyPressedEventArgs>>
+    for AcceleratorKeyPressedEventArgs
+{
     fn from(inner: ComRc<dyn ICoreWebView2AcceleratorKeyPressedEventArgs>) -> Self {
         Self { inner }
     }
@@ -524,30 +529,6 @@ impl AcceleratorKeyPressedEventArgs {
         self.inner
     }
     pub fn as_inner(&self) -> &ComRc<dyn ICoreWebView2AcceleratorKeyPressedEventArgs> {
-        &self.inner
-    }
-}
-
-/// Wrapper for `ICoreWebView2NewBrowserVersionAvailableEventArgs`.
-#[derive(Clone)]
-pub struct NewBrowserVersionAvailableEventArgs {
-    inner: ComRc<dyn ICoreWebView2NewBrowserVersionAvailableEventArgs>,
-}
-impl From<ComRc<dyn ICoreWebView2NewBrowserVersionAvailableEventArgs>> for NewBrowserVersionAvailableEventArgs {
-    fn from(inner: ComRc<dyn ICoreWebView2NewBrowserVersionAvailableEventArgs>) -> Self {
-        Self { inner }
-    }
-}
-impl fmt::Debug for NewBrowserVersionAvailableEventArgs {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("NewBrowserVersionAvailableEventArgs").finish()
-    }
-}
-impl NewBrowserVersionAvailableEventArgs {
-    pub fn into_inner(self) -> ComRc<dyn ICoreWebView2NewBrowserVersionAvailableEventArgs> {
-        self.inner
-    }
-    pub fn as_inner(&self) -> &ComRc<dyn ICoreWebView2NewBrowserVersionAvailableEventArgs> {
         &self.inner
     }
 }
@@ -572,6 +553,30 @@ impl Environment {
         self.inner
     }
     pub fn as_inner(&self) -> &ComRc<dyn ICoreWebView2Environment> {
+        &self.inner
+    }
+}
+
+/// Wrapper for `ICoreWebView2EnvironmentOptions`.
+#[derive(Clone)]
+pub struct EnvironmentOptions {
+    inner: ComRc<dyn ICoreWebView2EnvironmentOptions>,
+}
+impl From<ComRc<dyn ICoreWebView2EnvironmentOptions>> for EnvironmentOptions {
+    fn from(inner: ComRc<dyn ICoreWebView2EnvironmentOptions>) -> Self {
+        Self { inner }
+    }
+}
+impl fmt::Debug for EnvironmentOptions {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("EnvironmentOptions").finish()
+    }
+}
+impl EnvironmentOptions {
+    pub fn into_inner(self) -> ComRc<dyn ICoreWebView2EnvironmentOptions> {
+        self.inner
+    }
+    pub fn as_inner(&self) -> &ComRc<dyn ICoreWebView2EnvironmentOptions> {
         &self.inner
     }
 }
@@ -623,4 +628,3 @@ impl Stream {
         &self.inner
     }
 }
-

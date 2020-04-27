@@ -1,7 +1,6 @@
 use std::cell::RefCell;
 use std::mem;
 use std::rc::Rc;
-use webview2;
 use winapi::shared::windef::*;
 use winapi::um::winuser::*;
 use winit::dpi::Size;
@@ -18,7 +17,7 @@ fn main() {
         .build(&event_loop)
         .unwrap();
 
-    let webview_host: Rc<RefCell<Option<webview2::Host>>> = Rc::new(RefCell::new(None));
+    let webview_host: Rc<RefCell<Option<webview2::Controller>>> = Rc::new(RefCell::new(None));
     let webview: Rc<RefCell<Option<webview2::WebView>>> = Rc::new(RefCell::new(None));
 
     let create_result = {
@@ -27,7 +26,7 @@ fn main() {
         let hwnd = window.hwnd() as HWND;
 
         webview2::EnvironmentBuilder::new().build(move |env| {
-            env.expect("env").create_host(hwnd, move |host| {
+            env.expect("env").create_controller(hwnd, move |host| {
                 let host = host.expect("create host");
                 let w = host.get_webview().expect("get_webview");
 
