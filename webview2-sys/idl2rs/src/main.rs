@@ -731,6 +731,33 @@ pub trait IStream: ISequentialStream {
 /// registry values as replacements for the corresponding values in
 /// CreateCoreWebView2EnvironmentWithOptions parameters.
 pub type FnCreateCoreWebView2EnvironmentWithOptions = unsafe extern "stdcall" fn(browserExecutableFolder: PCWSTR, userDataFolder: PCWSTR, environment_options: *mut *mut ICoreWebView2EnvironmentOptionsVTable, environment_created_handler: *mut *mut ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandlerVTable) -> HRESULT;
+
+/// Get the browser version info including channel name if it is not the stable channel
+/// or the Embedded Edge.
+/// Channel names are beta, dev, and canary.
+/// If an override exists for the browserExecutableFolder or the channel preference,
+/// the override will be used.
+/// If there isn't an override, then the parameter passed to
+/// GetAvailableCoreWebView2BrowserVersionString is used.
+pub type FnGetAvailableCoreWebView2BrowserVersionString = unsafe extern "stdcall" fn(
+    browser_executable_folder: PCWSTR,
+    version_info: *mut LPWSTR,
+) -> HRESULT;
+
+/// This method is for anyone want to compare version correctly to determine
+/// which version is newer, older or same. It can be used to determine whether
+/// to use webview2 or certain feature base on version.
+/// Sets the value of result to -1, 0 or 1 if version1 is less than, equal or
+/// greater than version2 respectively.
+/// Returns E_INVALIDARG if it fails to parse any of the version strings or any
+/// input parameter is null.
+/// Input can directly use the versionInfo obtained from
+/// GetAvailableCoreWebView2BrowserVersionString, channel info will be ignored.
+pub type FnCompareBrowserVersions = unsafe extern "stdcall" fn(
+    version1: PCWSTR,
+    version2: PCWSTR,
+    result: *mut i32,
+) -> HRESULT;
 "#
     );
     doc.render(&mut io::stdout()).unwrap();

@@ -302,60 +302,101 @@ impl<'a> EnvironmentBuilder<'a> {
         }
     }
 
-    // Inline so that dead code elimination can eliminate the DLL file content
-    // and the memory-module-sys functions when they are not used.
     #[inline]
-    pub fn build(
-        self,
-        completed: impl FnOnce(Result<Environment>) -> Result<()> + 'static,
-    ) -> Result<()> {
-        let Self {
-            dll_file_path,
-            browser_executable_folder,
-            user_data_folder,
-            ..
-        } = self;
-
-        let create_fn: FnCreateCoreWebView2EnvironmentWithOptions = unsafe {
-            if let Some(dll_file_path) = dll_file_path {
-                let dll_file_path = WideCString::from_os_str(dll_file_path)?;
-                let dll = LoadLibraryW(dll_file_path.as_ptr());
-                if dll.is_null() {
-                    return Err(io::Error::last_os_error().into());
-                }
-                let create_fn = GetProcAddress(
-                    dll,
-                    "CreateCoreWebView2EnvironmentWithOptions\0".as_ptr() as *const i8,
-                );
-                if create_fn.is_null() {
-                    return Err(io::Error::last_os_error().into());
-                }
-                mem::transmute(create_fn)
-            } else {
-                #[cfg(feature = "memory-load-library")]
-                {
-                    let library =
-                        (*WEBVIEW2_LOADER_LIBRARY).map_err(io::Error::from_raw_os_error)?;
-                    let create_fn = MemoryGetProcAddress(
-                        library as _,
-                        "CreateCoreWebView2EnvironmentWithOptions\0".as_ptr() as *const i8,
-                    );
-                    if create_fn.is_null() {
-                        return Err(io::Error::last_os_error().into());
-                    }
-                    mem::transmute(create_fn)
-                }
-                #[cfg(not(feature = "memory-load-library"))]
-                panic!("webview2: DLL file path is not specified")
+    fn get_proc(&self, name: &[u8]) -> Result<FARPROC> {
+        if let Some(dll_file_path) = self.dll_file_path {
+            let dll_file_path = WideCString::from_os_str(dll_file_path)?;
+            let dll = unsafe { LoadLibraryW(dll_file_path.as_ptr()) };
+            if dll.is_null() {
+                return Err(io::Error::last_os_error().into());
             }
-        };
+            let proc = unsafe { GetProcAddress(dll, name.as_ptr() as _) };
+            if proc.is_null() {
+                return Err(io::Error::last_os_error().into());
+            }
+            Ok(proc)
+        } else {
+            #[cfg(feature = "memory-load-library")]
+            {
+                let library = (*WEBVIEW2_LOADER_LIBRARY).map_err(io::Error::from_raw_os_error)?;
+                let proc = unsafe { MemoryGetProcAddress(library as _, name.as_ptr() as _) };
+                if proc.is_null() {
+                    return Err(io::Error::last_os_error().into());
+                }
+                Ok(proc)
+            }
+            #[cfg(not(feature = "memory-load-library"))]
+            panic!("webview2: DLL file path is not specified")
+        }
+    }
 
-        let browser_executable_folder = if let Some(p) = browser_executable_folder {
+    #[inline]
+    pub fn get_available_browser_version_string(&self) -> Result<String> {
+        let browser_executable_folder = if let Some(p) = self.browser_executable_folder {
             Some(WideCString::from_os_str(p)?)
         } else {
             None
         };
-        let user_data_folder = if let Some(p) = user_data_folder {
+        let get_fn: FnGetAvailableCoreWebView2BrowserVersionString = unsafe {
+            mem::transmute(self.get_proc(b"GetAvailableCoreWebView2BrowserVersionString\0")?)
+        };
+
+        let mut result = MaybeUninit::<LPWSTR>::uninit();
+
+        check_hresult(unsafe {
+            get_fn(
+                browser_executable_folder
+                    .as_ref()
+                    .map_or(ptr::null(), |x| x.as_ptr()),
+                result.as_mut_ptr(),
+            )
+        })?;
+        let result = unsafe { result.assume_init() };
+        let result1 = unsafe { WideCStr::from_ptr_str(result) }
+            .to_string()
+            .map_err(|_| Error::new(E_FAIL));
+        unsafe { CoTaskMemFree(result as _) };
+        result1
+    }
+
+    #[inline]
+    pub fn compare_browser_versions(
+        &self,
+        version1: &str,
+        version2: &str,
+    ) -> Result<std::cmp::Ordering> {
+        let version1 = WideCString::from_str(version1)?;
+        let version2 = WideCString::from_str(version2)?;
+        let mut result = MaybeUninit::<i32>::uninit();
+
+        let compare_fn: FnCompareBrowserVersions =
+            unsafe { mem::transmute(self.get_proc(b"CompareBrowserVersions\0")?) };
+
+        check_hresult(unsafe {
+            compare_fn(version1.as_ptr(), version2.as_ptr(), result.as_mut_ptr())
+        })?;
+        let result = unsafe { result.assume_init() };
+
+        Ok(result.cmp(&0))
+    }
+
+    // Inline so that dead code elimination can eliminate the DLL file content
+    // and the memory-module-sys functions when they are not used.
+    #[inline]
+    pub fn build(
+        &self,
+        completed: impl FnOnce(Result<Environment>) -> Result<()> + 'static,
+    ) -> Result<()> {
+        let create_fn: FnCreateCoreWebView2EnvironmentWithOptions = unsafe {
+            mem::transmute(self.get_proc(b"CreateCoreWebView2EnvironmentWithOptions\0")?)
+        };
+
+        let browser_executable_folder = if let Some(p) = self.browser_executable_folder {
+            Some(WideCString::from_os_str(p)?)
+        } else {
+            None
+        };
+        let user_data_folder = if let Some(p) = self.user_data_folder {
             Some(WideCString::from_os_str(p)?)
         } else {
             None
@@ -601,6 +642,57 @@ impl Environment {
                 .create_core_web_view2_controller(parent_window, completed.as_raw())
         })
     }
+    pub fn create_web_resource_response(
+        &self,
+        content: Stream,
+        status_code: i32,
+        reason_phrase: &str,
+        headers: &str,
+    ) -> Result<WebResourceResponse> {
+        let content = ComPtr::from(content.into_inner());
+        let reason_phrase = WideCString::from_str(reason_phrase)?;
+        let headers = WideCString::from_str(headers)?;
+        let mut response =
+            MaybeUninit::<*mut *mut ICoreWebView2WebResourceResponseVTable>::uninit();
+        check_hresult(unsafe {
+            self.inner.create_web_resource_response(
+                content.as_raw(),
+                status_code,
+                reason_phrase.as_ptr(),
+                headers.as_ptr(),
+                response.as_mut_ptr(),
+            )
+        })?;
+        Ok(WebResourceResponse::from(unsafe {
+            ComRc::from_raw(response.assume_init())
+        }))
+    }
+    get_string!(get_browser_version_string);
+    pub fn add_new_browser_version_available(
+        &self,
+        event_handler: impl Fn(Environment) -> Result<()> + 'static,
+    ) -> Result<EventRegistrationToken> {
+        let mut token = MaybeUninit::<EventRegistrationToken>::uninit();
+
+        let event_handler = callback!(
+            ICoreWebView2NewBrowserVersionAvailableEventHandler,
+            move |sender: *mut *mut ICoreWebView2EnvironmentVTable,
+                  _args: *mut *mut com::interfaces::iunknown::IUnknownVTable|
+                  -> HRESULT {
+                let sender = Environment {
+                    inner: unsafe { add_ref_to_rc(sender) },
+                };
+                to_hresult(event_handler(sender))
+            }
+        );
+
+        check_hresult(unsafe {
+            self.inner
+                .add_new_browser_version_available(event_handler.as_raw(), token.as_mut_ptr())
+        })?;
+        Ok(unsafe { token.assume_init() })
+    }
+    remove_event_handler!(remove_new_browser_version_available);
 }
 
 impl Controller {
@@ -1393,5 +1485,33 @@ mod tests {
         stream.seek(io::SeekFrom::Start(0)).unwrap();
         stream.read_to_end(&mut buf).unwrap();
         assert_eq!(buf, b"hello, world");
+    }
+
+    #[test]
+    fn test_get_version() {
+        let version = EnvironmentBuilder::new()
+            .get_available_browser_version_string()
+            .unwrap();
+        println!("version: {}", version);
+    }
+
+    #[test]
+    fn test_cmp_version() {
+        let b = EnvironmentBuilder::new();
+        assert_eq!(
+            b.compare_browser_versions("84.0.498.0 canary", "84.0.498.0 canary")
+                .unwrap(),
+            std::cmp::Ordering::Equal,
+        );
+        assert_eq!(
+            b.compare_browser_versions("84.0.430.0 canary", "84.0.498.0 canary")
+                .unwrap(),
+            std::cmp::Ordering::Less,
+        );
+        assert_eq!(
+            b.compare_browser_versions("84.0.498.0", "84.0.440.0")
+                .unwrap(),
+            std::cmp::Ordering::Greater,
+        );
     }
 }
