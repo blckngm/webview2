@@ -119,109 +119,117 @@ unsafe fn add_ref_to_rc<T: ComInterface + ?Sized>(
 
 include!("interfaces.rs");
 
-#[com::co_class(implements(ICoreWebView2EnvironmentOptions))]
-struct EnvironmentOptionsImpl {
-    additional_browser_arguments: RefCell<Option<WideCString>>,
-    language: RefCell<Option<WideCString>>,
-    target_compatible_browser_version: RefCell<Option<WideCString>>,
-}
+// Put it in a module so that the `EnvironmentOptionsImplClassFactory` struct
+// does not leak into our public API.
+mod environment_options {
+    use super::*;
 
-impl EnvironmentOptionsImpl {
-    fn new() -> Box<Self> {
-        unreachable!()
+    #[com::co_class(implements(ICoreWebView2EnvironmentOptions))]
+    pub struct EnvironmentOptionsImpl {
+        additional_browser_arguments: RefCell<Option<WideCString>>,
+        language: RefCell<Option<WideCString>>,
+        target_compatible_browser_version: RefCell<Option<WideCString>>,
     }
 
-    fn from_builder(
-        builder: &EnvironmentBuilder,
-    ) -> Result<*mut *mut ICoreWebView2EnvironmentOptionsVTable> {
-        let additional_browser_arguments = if let Some(v) = builder.additional_browser_arguments {
-            Some(WideCString::from_str(v)?)
-        } else {
-            None
-        };
-        let language = if let Some(v) = builder.language {
-            Some(WideCString::from_str(v)?)
-        } else {
-            None
-        };
-        let version = if let Some(v) = builder.target_compatible_browser_version {
-            Some(WideCString::from_str(v)?)
-        } else {
-            None
-        };
-        let instance = Self::allocate(
-            additional_browser_arguments.into(),
-            language.into(),
-            version.into(),
-        );
+    impl EnvironmentOptionsImpl {
+        fn new() -> Box<Self> {
+            unreachable!()
+        }
+
+        pub fn from_builder(
+            builder: &EnvironmentBuilder,
+        ) -> Result<*mut *mut ICoreWebView2EnvironmentOptionsVTable> {
+            let additional_browser_arguments = if let Some(v) = builder.additional_browser_arguments
+            {
+                Some(WideCString::from_str(v)?)
+            } else {
+                None
+            };
+            let language = if let Some(v) = builder.language {
+                Some(WideCString::from_str(v)?)
+            } else {
+                None
+            };
+            let version = if let Some(v) = builder.target_compatible_browser_version {
+                Some(WideCString::from_str(v)?)
+            } else {
+                None
+            };
+            let instance = Self::allocate(
+                additional_browser_arguments.into(),
+                language.into(),
+                version.into(),
+            );
+            unsafe {
+                instance.add_ref();
+            }
+            Ok(Box::into_raw(instance) as _)
+        }
+    }
+
+    fn clone_wide_cstr_with_co_task_mem_alloc(s: &WideCStr) -> LPWSTR {
+        let len = s.len() + 1;
         unsafe {
-            instance.add_ref();
+            let s1 = CoTaskMemAlloc(len * 2) as *mut u16;
+            assert!(!s1.is_null());
+            ptr::copy_nonoverlapping(s.as_ptr(), s1, len);
+            s1
         }
-        Ok(Box::into_raw(instance) as _)
     }
-}
 
-fn clone_wide_cstr_with_co_task_mem_alloc(s: &WideCStr) -> LPWSTR {
-    let len = s.len() + 1;
-    unsafe {
-        let s1 = CoTaskMemAlloc(len * 2) as *mut u16;
-        assert!(!s1.is_null());
-        ptr::copy_nonoverlapping(s.as_ptr(), s1, len);
-        s1
-    }
-}
-
-impl ICoreWebView2EnvironmentOptions for EnvironmentOptionsImpl {
-    unsafe fn get_additional_browser_arguments(
-        &self,
-        /* out, retval */ value: *mut LPWSTR,
-    ) -> HRESULT {
-        if let Some(v) = self.additional_browser_arguments.borrow().as_ref() {
-            value.write(clone_wide_cstr_with_co_task_mem_alloc(&v));
-        } else {
-            value.write(ptr::null_mut());
+    impl ICoreWebView2EnvironmentOptions for EnvironmentOptionsImpl {
+        unsafe fn get_additional_browser_arguments(
+            &self,
+            /* out, retval */ value: *mut LPWSTR,
+        ) -> HRESULT {
+            if let Some(v) = self.additional_browser_arguments.borrow().as_ref() {
+                value.write(clone_wide_cstr_with_co_task_mem_alloc(&v));
+            } else {
+                value.write(ptr::null_mut());
+            }
+            S_OK
         }
-        S_OK
-    }
 
-    unsafe fn put_additional_browser_arguments(&self, /* in */ value: LPCWSTR) -> HRESULT {
-        *self.additional_browser_arguments.borrow_mut() = Some(WideCString::from_ptr_str(value));
-        S_OK
-    }
-
-    unsafe fn get_language(&self, /* out, retval */ value: *mut LPWSTR) -> HRESULT {
-        if let Some(v) = self.language.borrow().as_ref() {
-            value.write(clone_wide_cstr_with_co_task_mem_alloc(&v));
-        } else {
-            value.write(ptr::null_mut());
+        unsafe fn put_additional_browser_arguments(&self, /* in */ value: LPCWSTR) -> HRESULT {
+            *self.additional_browser_arguments.borrow_mut() =
+                Some(WideCString::from_ptr_str(value));
+            S_OK
         }
-        S_OK
-    }
 
-    unsafe fn put_language(&self, /* in */ value: LPCWSTR) -> HRESULT {
-        *self.language.borrow_mut() = Some(WideCString::from_ptr_str(value));
-        S_OK
-    }
-
-    unsafe fn get_target_compatible_browser_version(
-        &self,
-        /* out, retval */ value: *mut LPWSTR,
-    ) -> HRESULT {
-        if let Some(v) = self.target_compatible_browser_version.borrow().as_ref() {
-            value.write(clone_wide_cstr_with_co_task_mem_alloc(&v));
-        } else {
-            value.write(ptr::null_mut());
+        unsafe fn get_language(&self, /* out, retval */ value: *mut LPWSTR) -> HRESULT {
+            if let Some(v) = self.language.borrow().as_ref() {
+                value.write(clone_wide_cstr_with_co_task_mem_alloc(&v));
+            } else {
+                value.write(ptr::null_mut());
+            }
+            S_OK
         }
-        S_OK
-    }
 
-    unsafe fn put_target_compatible_browser_version(
-        &self,
-        /* in */ value: LPCWSTR,
-    ) -> HRESULT {
-        *self.target_compatible_browser_version.borrow_mut() =
-            Some(WideCString::from_ptr_str(value));
-        S_OK
+        unsafe fn put_language(&self, /* in */ value: LPCWSTR) -> HRESULT {
+            *self.language.borrow_mut() = Some(WideCString::from_ptr_str(value));
+            S_OK
+        }
+
+        unsafe fn get_target_compatible_browser_version(
+            &self,
+            /* out, retval */ value: *mut LPWSTR,
+        ) -> HRESULT {
+            if let Some(v) = self.target_compatible_browser_version.borrow().as_ref() {
+                value.write(clone_wide_cstr_with_co_task_mem_alloc(&v));
+            } else {
+                value.write(ptr::null_mut());
+            }
+            S_OK
+        }
+
+        unsafe fn put_target_compatible_browser_version(
+            &self,
+            /* in */ value: LPCWSTR,
+        ) -> HRESULT {
+            *self.target_compatible_browser_version.borrow_mut() =
+                Some(WideCString::from_ptr_str(value));
+            S_OK
+        }
     }
 }
 
@@ -352,7 +360,7 @@ impl<'a> EnvironmentBuilder<'a> {
         } else {
             None
         };
-        let options = EnvironmentOptionsImpl::from_builder(&self)?;
+        let options = environment_options::EnvironmentOptionsImpl::from_builder(&self)?;
 
         let completed = RefCell::new(Some(completed));
         let completed = callback!(
