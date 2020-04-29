@@ -4,12 +4,13 @@ name: Continuous Integration
 
 jobs:
   test:
-    name: Test Suite
+    name: Test
     runs-on: windows-latest
     strategy:
       matrix:
         version:
-          - stable
+          # Uncomment when stable > 1.43
+          # - stable
           - 1.43.0
         arch:
           - x86_64
@@ -40,6 +41,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
+          # Use fixed version because format result can change between different rust versions.
           toolchain: 1.43.0
           override: true
       - run: rustup component add rustfmt
@@ -56,6 +58,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
+          # Use fixed version because clippy warnings can change between rust versions.
           toolchain: 1.43.0
           override: true
       - run: rustup component add clippy
@@ -67,3 +70,22 @@ jobs:
         with:
           command: clippy
           args: --no-default-features --all --all-targets -- -D warnings
+
+  check-generated-code:
+    name: Check Generated Code (make sure they are up to date)
+    # Using bash from ubuntu is easier.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          # Use fixed version because format result can change between different rust versions.
+          toolchain: 1.43.0
+          override: true
+      - run: rustup component add rustfmt
+      - run: cargo run < ../../Microsoft.Web.WebView2.0.9.488/WebView2.idl > ../src/lib.rs && rustfmt ../src/lib.rs
+        working-directory: webview2-sys/idl2rs
+      - run: cargo run -- interface_wrappers < ../../Microsoft.Web.WebView2.0.9.488/WebView2.idl > ../../src/interfaces.rs && rustfmt ../../src/interfaces.rs
+        working-directory: webview2-sys/idl2rs
+      - run: git diff --exit-code
