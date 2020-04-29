@@ -1,0 +1,69 @@
+on: [push, pull_request]
+
+name: Continuous Integration
+
+jobs:
+  test:
+    name: Test Suite
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        version:
+          - stable
+          - 1.43.0
+        arch:
+          - x86_64
+          - i686
+        env:
+          - msvc
+          - gnu
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.version }}-${{ matrix.arch }}-pc-windows-${{ matrix.env }}
+          override: true
+      - uses: actions-rs/cargo@v1
+        with:
+          command: test
+      - uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --no-default-features
+
+  fmt:
+    name: Rustfmt
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: 1.43.0
+          override: true
+      - run: rustup component add rustfmt
+      - uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check
+
+  clippy:
+    name: Clippy
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: 1.43.0
+          override: true
+      - run: rustup component add clippy
+      - uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: --all --all-targets -- -D warnings
+      - uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: --no-default-features --all --all-targets -- -D warnings

@@ -19,6 +19,10 @@
 //! use the `as_inner` methods to convert to raw COM objects and call all those
 //! methods. The `callback` macro can be helpful for implementing callbacks as
 //! COM objects.
+//!
+//! There are some examples in the examples directory.
+//!
+//! Minimum supported rust version (MSRV): 1.43.0
 #![cfg(windows)]
 // Caused by the `com_interface` macro.
 #![allow(clippy::cmp_null)]
@@ -1487,14 +1491,7 @@ mod tests {
         assert_eq!(buf, b"hello, world");
     }
 
-    #[test]
-    fn test_get_version() {
-        let version = EnvironmentBuilder::new()
-            .get_available_browser_version_string()
-            .unwrap();
-        println!("version: {}", version);
-    }
-
+    #[cfg(feature = "memory-load-library")]
     #[test]
     fn test_cmp_version() {
         let b = EnvironmentBuilder::new();
