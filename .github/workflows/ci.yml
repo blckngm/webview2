@@ -33,6 +33,30 @@ jobs:
           command: test
           args: --no-default-features
 
+  test-minimal-versions:
+    name: Test (Minimal versions)
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        toolchain:
+          - nightly-x86_64-pc-windows-msvc
+          - nightly-i686-pc-windows-gnu
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.toolchain }}
+          override: true
+      - uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: -Z minimal-versions
+      - uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: -Z minimal-versions --no-default-features
+
   fmt:
     name: Rustfmt
     runs-on: windows-latest
