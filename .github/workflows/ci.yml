@@ -57,6 +57,22 @@ jobs:
           command: test
           args: -Z minimal-versions --no-default-features
 
+  # Check with cargo feature features=dev_dep to avoid issues like #7.
+  check-features-dev_dep:
+    name: Check with -Z features=dev_dep
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          override: true
+      - uses: actions-rs/cargo@v1
+        with:
+          command: check
+          args: -Z features=dev_dep
+
   fmt:
     name: Rustfmt
     runs-on: windows-latest
