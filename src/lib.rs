@@ -87,7 +87,16 @@ macro_rules! callback {
 
         impl $name for Impl {
             unsafe fn invoke(&self, $($arg : $arg_type),*) -> $ret_type {
-                (self.cb)($($arg),*)
+                let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(move || {
+                    (self.cb)($($arg),*)
+                }));
+                match r {
+                    Ok(r) => r,
+                    Err(_) => {
+                        eprintln!("webview2: panic in callback function. Aborting because it's UB to unwind across FFI boundaries.");
+                        std::process::abort()
+                    }
+                }
             }
         }
 
