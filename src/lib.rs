@@ -33,7 +33,7 @@ use com::{interfaces::IUnknown, ComInterface, ComPtr, ComRc};
 use memory_module_sys::{MemoryGetProcAddress, MemoryLoadLibrary};
 #[cfg(feature = "memory-load-library")]
 use once_cell::sync::Lazy;
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::fmt;
 use std::io;
 use std::mem::{self, MaybeUninit};
@@ -416,7 +416,7 @@ impl<'a> EnvironmentBuilder<'a> {
         };
         let options = environment_options::EnvironmentOptionsImpl::from_builder(&self)?;
 
-        let completed = RefCell::new(Some(completed));
+        let completed = Cell::new(Some(completed));
         let completed = callback!(
             ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler,
             move |result: HRESULT,
@@ -425,7 +425,11 @@ impl<'a> EnvironmentBuilder<'a> {
                 let result = check_hresult(result).map(move |_| Environment {
                     inner: unsafe { add_ref_to_rc(created_environment) },
                 });
-                to_hresult(completed.borrow_mut().take().unwrap()(result))
+                if let Some(completed) = completed.take() {
+                    to_hresult(completed(result))
+                } else {
+                    S_OK
+                }
             }
         );
 
@@ -638,7 +642,7 @@ impl Environment {
         parent_window: HWND,
         completed: impl FnOnce(Result<Controller>) -> Result<()> + 'static,
     ) -> Result<()> {
-        let completed = RefCell::new(Some(completed));
+        let completed = Cell::new(Some(completed));
         let completed = callback!(
             ICoreWebView2CreateCoreWebView2ControllerCompletedHandler,
             move |result: HRESULT,
@@ -647,7 +651,11 @@ impl Environment {
                 let result = check_hresult(result).map(|_| Controller {
                     inner: unsafe { add_ref_to_rc(created_host) },
                 });
-                to_hresult(completed.borrow_mut().take().unwrap()(result))
+                if let Some(completed) = completed.take() {
+                    to_hresult(completed(result))
+                } else {
+                    S_OK
+                }
             }
         );
         check_hresult(unsafe {
@@ -876,7 +884,7 @@ impl WebView {
         callback: impl FnOnce(String) -> Result<()> + 'static,
     ) -> Result<()> {
         let script = WideCString::from_str(script)?;
-        let callback = RefCell::new(Some(callback));
+        let callback = Cell::new(Some(callback));
         let callback = callback!(
             ICoreWebView2AddScriptToExecuteOnDocumentCreatedCompletedHandler,
             move |error_code: HRESULT, id: LPCWSTR| -> HRESULT {
@@ -884,7 +892,7 @@ impl WebView {
                     let id = unsafe { WideCStr::from_ptr_str(id) }
                         .to_string()
                         .map_err(|_| Error::new(E_FAIL))?;
-                    if let Some(callback) = callback.borrow_mut().take() {
+                    if let Some(callback) = callback.take() {
                         callback(id)
                     } else {
                         Ok(())
@@ -910,7 +918,7 @@ impl WebView {
         callback: impl FnOnce(String) -> Result<()> + 'static,
     ) -> Result<()> {
         let script = WideCString::from_str(script)?;
-        let callback = RefCell::new(Some(callback));
+        let callback = Cell::new(Some(callback));
         let callback = callback!(
             ICoreWebView2ExecuteScriptCompletedHandler,
             move |error_code: HRESULT, result_object_as_json: LPCWSTR| -> HRESULT {
@@ -919,7 +927,7 @@ impl WebView {
                         unsafe { WideCStr::from_ptr_str(result_object_as_json) }
                             .to_string()
                             .map_err(|_| Error::new(E_FAIL))?;
-                    if let Some(callback) = callback.borrow_mut().take() {
+                    if let Some(callback) = callback.take() {
                         callback(result_object_as_json_string)
                     } else {
                         Ok(())
@@ -943,12 +951,15 @@ impl WebView {
         image_stream: Stream,
         handler: impl FnOnce(Result<()>) -> Result<()> + 'static,
     ) -> Result<()> {
-        let handler = RefCell::new(Some(handler));
+        let handler = Cell::new(Some(handler));
         let handler = callback!(
             ICoreWebView2CapturePreviewCompletedHandler,
             move |result: HRESULT| -> HRESULT {
-                let handler = handler.borrow_mut().take().unwrap();
-                to_hresult(handler(check_hresult(result)))
+                if let Some(handler) = handler.take() {
+                    to_hresult(handler(check_hresult(result)))
+                } else {
+                    S_OK
+                }
             }
         );
         let image_stream = ComPtr::from(image_stream.inner);
