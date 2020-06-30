@@ -1,7 +1,7 @@
 //! Rust bindings for
 //! [WebView2](https://docs.microsoft.com/en-us/microsoft-edge/hosting/webview2).
 //!
-//! The new Chromium based Edge browser (>= 82.0.448.0) need to be installed for
+//! The new Chromium based Edge browser (>= 84.0.448.0) need to be installed for
 //! this to actually work. Or the
 //! [`build`](struct.EnvironmentBuilder.html#method.build) method will return an
 //! error.
