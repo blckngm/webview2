@@ -123,8 +123,8 @@ jobs:
           toolchain: 1.45.0
           override: true
       - run: rustup component add rustfmt
-      - run: cargo run < ../../Microsoft.Web.WebView2.0.9.488/WebView2.idl > ../src/lib.rs && rustfmt ../src/lib.rs
+      - run: cargo run < ../../Microsoft.Web.WebView2.0.9.579/WebView2.idl > ../src/lib.rs && rustfmt ../src/lib.rs
         working-directory: webview2-sys/idl2rs
-      - run: cargo run -- interface_wrappers < ../../Microsoft.Web.WebView2.0.9.488/WebView2.idl > ../../src/interfaces.rs && rustfmt ../../src/interfaces.rs
+      - run: cargo run -- interface_wrappers < ../../Microsoft.Web.WebView2.0.9.579/WebView2.idl > ../../src/interfaces.rs && rustfmt ../../src/interfaces.rs
         working-directory: webview2-sys/idl2rs
       - run: git diff --exit-code
