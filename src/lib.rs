@@ -1,8 +1,10 @@
 //! Rust bindings for
 //! [WebView2](https://docs.microsoft.com/en-us/microsoft-edge/hosting/webview2).
 //!
-//! The new Chromium based Edge browser (>= 84.0.448.0) need to be installed for
-//! this to actually work. Or the
+//! The Edge browser from beta, dev or canary channels (>= 86.0.579.0) or the
+//! [Evergreen WebView2
+//! Runtime](https://docs.microsoft.com/en-us/microsoft-edge/webview2/concepts/distribution#understand-the-webview2-runtime-and-installer-preview)
+//! need to be installed for this to actually work. Or the
 //! [`build`](struct.EnvironmentBuilder.html#method.build) method will return an
 //! error.
 //!
@@ -10,7 +12,7 @@
 //! target platform. At runtime, this dll will be loaded from memory with the
 //! [memory-module-sys](https://crates.io/crates/memory-module-sys) library.
 //! License of the DLL file (part of the WebView2 SDK) is included in the
-//! `Microsoft.Web.WebView2.0.9.448` folder. You can also [use an external
+//! `Microsoft.Web.WebView2.0.9.579` folder. You can also [use an external
 //! `WebView2Loader.dll`
 //! file](struct.EnvironmentBuilder.html#method.with_dll_file_path).
 //!
@@ -53,13 +55,13 @@ use winapi::um::libloaderapi::{GetProcAddress, LoadLibraryW};
 
 #[cfg(all(feature = "memory-load-library", target_arch = "x86_64"))]
 static WEBVIEW2_LOADER_DLL_CONTENT: &[u8] =
-    include_bytes!("../Microsoft.Web.WebView2.0.9.488/build/x64/WebView2Loader.dll");
+    include_bytes!("../Microsoft.Web.WebView2.0.9.579/build/x64/WebView2Loader.dll");
 #[cfg(all(feature = "memory-load-library", target_arch = "x86"))]
 static WEBVIEW2_LOADER_DLL_CONTENT: &[u8] =
-    include_bytes!("../Microsoft.Web.WebView2.0.9.488/build/x86/WebView2Loader.dll");
+    include_bytes!("../Microsoft.Web.WebView2.0.9.579/build/x86/WebView2Loader.dll");
 #[cfg(all(feature = "memory-load-library", target_arch = "aarch64"))]
 static WEBVIEW2_LOADER_DLL_CONTENT: &[u8] =
-    include_bytes!("../Microsoft.Web.WebView2.0.9.488/build/arm64/WebView2Loader.dll");
+    include_bytes!("../Microsoft.Web.WebView2.0.9.579/build/arm64/WebView2Loader.dll");
 
 #[cfg(feature = "memory-load-library")]
 static WEBVIEW2_LOADER_LIBRARY: Lazy<std::result::Result<usize, i32>> = Lazy::new(|| unsafe {
@@ -1059,8 +1061,8 @@ impl Settings {
     get_bool!(get_are_default_context_menus_enabled);
     put_bool!(put_are_default_context_menus_enabled);
 
-    get_bool!(get_are_remote_objects_allowed);
-    put_bool!(put_are_remote_objects_allowed);
+    get_bool!(get_are_host_objects_allowed);
+    put_bool!(put_are_host_objects_allowed);
 
     get_bool!(get_is_zoom_control_enabled);
     put_bool!(put_is_zoom_control_enabled);

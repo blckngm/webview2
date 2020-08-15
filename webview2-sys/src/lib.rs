@@ -457,6 +457,20 @@ pub enum KeyEventKind {
 /// ## Navigation events
 /// The normal sequence of navigation events is NavigationStarting,
 /// SourceChanged, ContentLoading and then NavigationCompleted.
+/// The following events describe the state of WebView during each navigation:
+/// NavigationStarting: WebView is starting to navigate and the navigation will
+/// result in a network request. The host can disallow the request at this time.
+/// SourceChanged: The source of WebView is changed to a new URL. This may also
+/// be due to a navigation that doesn't cause a network request such as a fragment
+/// navigation.
+/// HistoryChanged: WebView's history has been updated as a result of
+/// the navigation.
+/// ContentLoading: WebView has started loading new content.
+/// NavigationCompleted: WebView has completed loading content on the new page.
+/// Developers can track navigations to each new document by the navigation ID.
+/// WebView's navigation ID changes every time there is a successful navigation
+/// to a new document.
+///
 ///
 /// \dot
 /// digraph NavigationEvents {
@@ -486,7 +500,9 @@ pub enum KeyEventKind {
 /// on whether the navigation is continued to an error page.
 /// In case of an HTTP redirect, there will be multiple NavigationStarting
 /// events in a row, with ones following the first will have their IsRedirect
-/// flag set.
+/// flag set, however navigation ID remains the same. Same document navigations
+/// do not result in NavigationStarting event and also do not increment the
+/// navigation ID.
 ///
 /// To monitor or cancel navigations inside subframes in the WebView, use
 /// FrameNavigationStarting.
@@ -778,7 +794,7 @@ pub trait ICoreWebView2: IUnknown {
     /// FrameNavigationCompleted event fires when a child frame has completely
     /// loaded (body.onload has fired) or loading stopped with error.
     ///
-    /// \snippet ControlCompnent.cpp FrameNavigationCompleted
+    /// \snippet ControlComponent.cpp FrameNavigationCompleted
     unsafe fn add_frame_navigation_completed(
         &self,
         /* in */ event_handler: *mut *mut ICoreWebView2NavigationCompletedEventHandlerVTable,
@@ -851,6 +867,9 @@ pub trait ICoreWebView2: IUnknown {
     /// This is applied asynchronously and you must wait for the completion
     /// handler to run before you can be sure that the script is ready to
     /// execute on future navigations.
+    /// The handler's Invoke method will be called when the method asynchronously
+    /// completes. Invoke will be called with the id associated with the injected
+    /// script as a string.
     ///
     /// Note that if an HTML document has sandboxing of some kind via [sandbox](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/iframe#attr-sandbox)
     /// properties or the [Content-Security-Policy HTTP header](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Security-Policy)
@@ -866,7 +885,8 @@ pub trait ICoreWebView2: IUnknown {
         handler: *mut *mut ICoreWebView2AddScriptToExecuteOnDocumentCreatedCompletedHandlerVTable,
     ) -> HRESULT;
 
-    /// Remove the corresponding JavaScript added via AddScriptToExecuteOnDocumentCreated.
+    /// Remove the corresponding JavaScript added via AddScriptToExecuteOnDocumentCreated
+    /// with the specified script id.
     unsafe fn remove_script_to_execute_on_document_created(
         &self,
         /* in */ id: LPCWSTR,
@@ -884,11 +904,9 @@ pub trait ICoreWebView2: IUnknown {
     /// returns undefined.
     /// If the executed script throws an unhandled exception, then the result is
     /// also 'null'.
-    /// This method is applied asynchronously. If the call is made while the
-    /// webview is on one document, and a navigation occurs after the call is
-    /// made but before the JavaScript is executed, then the script will not be
-    /// executed and the handler will be called with E_FAIL for its errorCode
-    /// parameter.
+    /// This method is applied asynchronously. If the method is called after
+    /// NavigationStarting event during a navigation, the script will be executed
+    /// in the new document when loading it, around the time ContentLoading is fired.
     /// ExecuteScript will work even if IsScriptEnabled is set to FALSE.
     ///
     /// \snippet ScriptComponent.cpp ExecuteScript
@@ -922,10 +940,12 @@ pub trait ICoreWebView2: IUnknown {
     /// The top level document's window.chrome.webview's message event fires.
     /// JavaScript in that document may subscribe and unsubscribe to the event
     /// via the following:
+    ///
     /// ```
     ///    window.chrome.webview.addEventListener('message', handler)
     ///    window.chrome.webview.removeEventListener('message', handler)
     /// ```
+    ///
     /// The event args is an instance of `MessageEvent`.
     /// The ICoreWebView2Settings::IsWebMessageEnabled setting must be true or this method
     /// will fail with E_INVALIDARG.
@@ -1092,19 +1112,23 @@ pub trait ICoreWebView2: IUnknown {
     /// property or method, or rejected in case of error such as there is no such
     /// property or method on the object or parameters are invalid.
     /// For example, when the application code does the following:
+    ///
     /// ```
     ///    VARIANT object;
     ///    object.vt = VT_DISPATCH;
     ///    object.pdispVal = appObject;
     ///    webview->AddHostObjectToScript(L"host_object", &host);
     /// ```
+    ///
     /// JavaScript code in the WebView will be able to access appObject as
     /// following and then access attributes and methods of appObject:
+    ///
     /// ```
     ///    let app_object = await window.chrome.webview.hostObjects.host_object;
     ///    let attr1 = await app_object.attr1;
     ///    let result = await app_object.method1(parameters);
     /// ```
+    ///
     /// Note that while simple types, IDispatch and array are supported, generic
     /// IUnknown, VT_DECIMAL, or VT_RECORD variant is not supported.
     /// Remote JavaScript objects like callback functions are represented as
@@ -1209,11 +1233,13 @@ pub trait ICoreWebView2: IUnknown {
     /// We can add an instance of this interface into our JavaScript with
     /// `AddHostObjectToScript`. In this case we name it `sample`:
     ///
-    /// \snippet ScenarioAddRemoteObject.cpp AddHostObjectToScript
+    /// \snippet ScenarioAddHostObject.cpp AddHostObjectToScript
     ///
     /// Then in the HTML document we can use this COM object via `chrome.webview.hostObjects.sample`:
     ///
-    /// \snippet ScenarioAddRemoteObject.html HostObjectUsage
+    /// \snippet ScenarioAddHostObject.html HostObjectUsage
+    /// Exposing host objects to script has security risk. Please follow
+    /// [best practices](https://docs.microsoft.com/microsoft-edge/webview2/concepts/security).
     unsafe fn add_host_object_to_script(
         &self,
         /* in */ name: LPCWSTR,
@@ -1262,7 +1288,7 @@ pub trait ICoreWebView2: IUnknown {
     ) -> HRESULT;
 
     /// Add an event handler for the WebResourceRequested event. Fires when the
-    /// WebView is performing an HTTP request to a matching URL and resource context
+    /// WebView is performing a URL request to a matching URL and resource context
     /// filter that was added with AddWebResourceRequestedFilter. At least one
     /// filter must be added for the event to fire.
     ///
@@ -1414,7 +1440,7 @@ pub trait ICoreWebView2Controller: IUnknown {
     ) -> HRESULT;
 
     /// Update Bounds and ZoomFactor properties at the same time. This operation
-    /// is atomic from the host's perspecive. After returning from this function,
+    /// is atomic from the host's perspective. After returning from this function,
     /// the Bounds and ZoomFactor properties will have both been updated if the
     /// function is successful, or neither will be updated if the function fails.
     /// If Bounds and ZoomFactor are both updated by the same scale (i.e. Bounds
@@ -1557,7 +1583,7 @@ pub trait ICoreWebView2Controller: IUnknown {
     unsafe fn notify_parent_window_position_changed(&self) -> HRESULT;
 
     /// Closes the WebView and cleans up the underlying browser instance.
-    /// Cleaning up the browser instace will release the resources powering the WebView.
+    /// Cleaning up the browser instance will release the resources powering the WebView.
     /// The browser instance will be shut down if there are no other WebViews using it.
     ///
     /// After calling Close, all method calls will fail and event handlers
@@ -1698,17 +1724,17 @@ pub trait ICoreWebView2Settings: IUnknown {
     /// Set the AreDefaultContextMenusEnabled property
     unsafe fn put_are_default_context_menus_enabled(&self, /* in */ enabled: BOOL) -> HRESULT;
 
-    /// The AreRemoteObjectsAllowed property is used to control whether
+    /// The AreHostObjectsAllowed property is used to control whether
     /// host objects are accessible from the page in webview. Defaults to TRUE.
     ///
-    /// \snippet SettingsComponent.cpp RemoteObjectsAccess
-    unsafe fn get_are_remote_objects_allowed(
+    /// \snippet SettingsComponent.cpp HostObjectsAccess
+    unsafe fn get_are_host_objects_allowed(
         &self,
         /* out, retval */ allowed: *mut BOOL,
     ) -> HRESULT;
 
-    /// Set the AreRemoteObjectsAllowed property
-    unsafe fn put_are_remote_objects_allowed(&self, /* in */ allowed: BOOL) -> HRESULT;
+    /// Set the AreHostObjectsAllowed property
+    unsafe fn put_are_host_objects_allowed(&self, /* in */ allowed: BOOL) -> HRESULT;
 
     /// The IsZoomControlEnabled property is used to prevent the user from
     /// impacting the zoom of the WebView. Defaults to TRUE.
@@ -2245,41 +2271,49 @@ pub trait ICoreWebView2ExecuteScriptCompletedHandler: IUnknown {
 /// Event args for the WebResourceRequested event.
 #[com_interface("2D7B3282-83B1-41CA-8BBF-FF18F6BFE320")]
 pub trait ICoreWebView2WebResourceRequestedEventArgs: IUnknown {
-    /// The HTTP request.
+    /// The Web resource request. The request object may be missing some headers
+    /// that are added by network stack later on.
     unsafe fn get_request(
         &self,
         /* out, retval */ request: *mut *mut *mut ICoreWebView2WebResourceRequestVTable,
     ) -> HRESULT;
 
-    /// The HTTP response.
+    /// A placeholder for the web resource response object. If this object is set, the
+    /// web resource request will be completed with this response.
     unsafe fn get_response(
         &self,
         /* out, retval */ response: *mut *mut *mut ICoreWebView2WebResourceResponseVTable,
     ) -> HRESULT;
 
-    /// Set the Response property.
+    /// Set the Response property. An empty Web resource respnose object can be
+    /// created with CreateWebResourceResponse and then modified to construct the response.
     unsafe fn put_response(
         &self,
         /* in */ response: *mut *mut ICoreWebView2WebResourceResponseVTable,
     ) -> HRESULT;
 
     /// Obtain an ICoreWebView2Deferral object and put the event into a deferred state.
-    /// You can use the ICoreWebView2Deferral object to complete the network request at a
+    /// You can use the ICoreWebView2Deferral object to complete the request at a
     /// later time.
     unsafe fn get_deferral(
         &self,
         /* out, retval */ deferral: *mut *mut *mut ICoreWebView2DeferralVTable,
     ) -> HRESULT;
 
-    /// The web resource request contexts.
+    /// The web resource request context.
     unsafe fn get_resource_context(
         &self,
         /* out, retval */ context: *mut WebResourceContext,
     ) -> HRESULT;
 }
 
-/// Fires when an HTTP request is made in the webview. The host can override
-/// request, response headers and response content.
+/// Fires when a URL request (through network, file etc.) is made in the webview
+/// for a Web resource matching resource context filter and URL specified in
+/// AddWebResourceRequestedFilter.
+/// The host can view and modify the request or provide a response in a similar
+/// pattern to HTTP, in which case the request immediately completed.
+/// This may not contain any request headers that are added by the network
+/// stack, such as Authorization headers.
 #[com_interface("F6DC79F2-E1FA-4534-8968-4AFF10BBAA32")]
 pub trait ICoreWebView2WebResourceRequestedEventHandler: IUnknown {
     /// Called to provide the implementer with the event args for the
@@ -2483,8 +2517,10 @@ pub trait ICoreWebView2NewWindowRequestedEventArgs: IUnknown {
     /// Gets whether the NewWindowRequestedEvent is handled by host.
     unsafe fn get_handled(&self, /* out, retval */ handled: *mut BOOL) -> HRESULT;
 
-    /// IsUserInitiated is true when the new window request was initiated through a user gesture
-    /// such as clicking an anchor tag with target.
+    /// IsUserInitiated is true when the new window request was initiated through
+    /// a user gesture such as clicking an anchor tag with target. The Edge
+    /// popup blocker is disabled for WebView so the app can use this flag to
+    /// block non-user initiated popups.
     unsafe fn get_is_user_initiated(
         &self,
         /* out, retval */ is_user_initiated: *mut BOOL,
@@ -2782,7 +2818,7 @@ pub trait ICoreWebView2EnvironmentOptions: IUnknown {
     /// channel suffix, if it exists, is ignored.
     /// The version of the Edge WebView2 Runtime binaries actually used may be
     /// different from the specified TargetCompatibleBrowserVersion. They are only
-    /// guarenteed to be compatible. You can check the actual version on the
+    /// guaranteed to be compatible. You can check the actual version on the
     /// BrowserVersionString property on the ICoreWebView2Environment.
     unsafe fn get_target_compatible_browser_version(
         &self,
@@ -2807,13 +2843,13 @@ pub trait ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler: IUnknown {
 }
 
 /// A Receiver is created for a particular DevTools Protocol event and allows
-/// you to subscribe and unsubsribe from that event.
+/// you to subscribe and unsubscribe from that event.
 /// Obtained from the WebView object via GetDevToolsProtocolEventReceiver.
 #[com_interface("FE59C48C-540C-4A3C-8898-8E1602E0055D")]
 pub trait ICoreWebView2DevToolsProtocolEventReceiver: IUnknown {
     /// Subscribe to a DevToolsProtocol event.
     /// The handler's Invoke method will be called whenever the corresponding
-    /// DevToolsProtocol event fires. Invoke will be called with the
+    /// DevToolsProtocol event fires. Invoke will be called with
     /// an event args object containing the DevTools Protocol event's parameter
     /// object as a JSON string.
     ///
