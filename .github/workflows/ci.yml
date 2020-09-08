@@ -81,7 +81,7 @@ jobs:
         with:
           profile: minimal
           # Use fixed version because format result can change between different rust versions.
-          toolchain: 1.45.0
+          toolchain: 1.46.0
           override: true
       - run: rustup component add rustfmt
       - uses: actions-rs/cargo@v1
@@ -98,7 +98,7 @@ jobs:
         with:
           profile: minimal
           # Use fixed version because clippy warnings can change between rust versions.
-          toolchain: 1.45.0
+          toolchain: 1.46.0
           override: true
       - run: rustup component add clippy
       - uses: actions-rs/cargo@v1
@@ -120,7 +120,7 @@ jobs:
         with:
           profile: minimal
           # Use fixed version because format result can change between different rust versions.
-          toolchain: 1.45.0
+          toolchain: 1.46.0
           override: true
       - run: rustup component add rustfmt
       - run: cargo run < ../../Microsoft.Web.WebView2.0.9.579/WebView2.idl > ../src/lib.rs && rustfmt ../src/lib.rs

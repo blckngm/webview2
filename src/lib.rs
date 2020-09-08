@@ -77,6 +77,8 @@ static WEBVIEW2_LOADER_LIBRARY: Lazy<std::result::Result<usize, i32>> = Lazy::ne
     }
 });
 
+static DEFAULT_TARGET_COMPATIBLE_BROWSER_VERSION: &str = "86.0.579";
+
 /// Returns a pointer that implements the COM callback interface with the specified closure.
 /// Inspired by C++ Microsoft::WRT::Callback.
 #[macro_export]
@@ -165,11 +167,13 @@ mod environment_options {
             } else {
                 None
             };
-            let version = if let Some(v) = builder.target_compatible_browser_version {
-                Some(WideCString::from_str(v)?)
-            } else {
-                None
-            };
+            // Strangely, `CreateCoreWebView2EnvironmentWithDetails` will fail
+            // with 0x80070057 (`E_INVALIDARG`) if the
+            // `TargetCompatibleBrowserVersion` property is `NULL`.
+            let version = builder
+                .target_compatible_browser_version
+                .unwrap_or(DEFAULT_TARGET_COMPATIBLE_BROWSER_VERSION);
+            let version = Some(WideCString::from_str(version)?);
             let instance = Self::allocate(
                 additional_browser_arguments.into(),
                 language.into(),
