@@ -1267,6 +1267,24 @@ impl NewWindowRequestedEventArgs {
     get_bool!(get_handled);
     get_bool!(get_is_user_initiated);
     get_interface!(get_deferral, Deferral, ICoreWebView2DeferralVTable);
+    get_interface!(
+        get_window_features,
+        WindowFeatures,
+        ICoreWebView2WindowFeaturesVTable
+    );
+}
+
+impl WindowFeatures {
+    get_bool!(has_position);
+    get_bool!(has_size);
+    get!(get_left, u32);
+    get!(get_top, u32);
+    get!(get_height, u32);
+    get!(get_width, u32);
+    get_bool!(get_menu_bar);
+    get_bool!(get_status);
+    get_bool!(get_toolbar);
+    get_bool!(get_scroll_bars);
 }
 
 impl MoveFocusRequestedEventArgs {
