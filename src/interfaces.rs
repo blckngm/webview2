@@ -507,6 +507,30 @@ impl NewWindowRequestedEventArgs {
     }
 }
 
+/// Wrapper for `ICoreWebView2WindowFeatures`.
+#[derive(Clone)]
+pub struct WindowFeatures {
+    inner: ComRc<dyn ICoreWebView2WindowFeatures>,
+}
+impl From<ComRc<dyn ICoreWebView2WindowFeatures>> for WindowFeatures {
+    fn from(inner: ComRc<dyn ICoreWebView2WindowFeatures>) -> Self {
+        Self { inner }
+    }
+}
+impl fmt::Debug for WindowFeatures {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("WindowFeatures").finish()
+    }
+}
+impl WindowFeatures {
+    pub fn into_inner(self) -> ComRc<dyn ICoreWebView2WindowFeatures> {
+        self.inner
+    }
+    pub fn as_inner(&self) -> &ComRc<dyn ICoreWebView2WindowFeatures> {
+        &self.inner
+    }
+}
+
 /// Wrapper for `ICoreWebView2AcceleratorKeyPressedEventArgs`.
 #[derive(Clone)]
 pub struct AcceleratorKeyPressedEventArgs {

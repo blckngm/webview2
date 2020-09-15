@@ -212,7 +212,14 @@ pub trait IStream: ISequentialStream {
 /// use the browserExecutableFolder, userDataFolder and additionalBrowserArguments
 /// registry values as replacements for the corresponding values in
 /// CreateCoreWebView2EnvironmentWithOptions parameters.
-pub type FnCreateCoreWebView2EnvironmentWithOptions = unsafe extern "stdcall" fn(browserExecutableFolder: PCWSTR, userDataFolder: PCWSTR, environment_options: *mut *mut ICoreWebView2EnvironmentOptionsVTable, environment_created_handler: *mut *mut ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandlerVTable) -> HRESULT;
+extern "stdcall" {
+    pub fn CreateCoreWebView2EnvironmentWithOptions(
+        browserExecutableFolder: PCWSTR,
+        userDataFolder: PCWSTR,
+        environment_options: *mut *mut ICoreWebView2EnvironmentOptionsVTable,
+        environment_created_handler: *mut *mut ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandlerVTable,
+    ) -> HRESULT;
+}
 
 /// Get the browser version info including channel name if it is not the stable channel
 /// or the Embedded Edge.
@@ -221,10 +228,12 @@ pub type FnCreateCoreWebView2EnvironmentWithOptions = unsafe extern "stdcall" fn
 /// the override will be used.
 /// If there isn't an override, then the parameter passed to
 /// GetAvailableCoreWebView2BrowserVersionString is used.
-pub type FnGetAvailableCoreWebView2BrowserVersionString = unsafe extern "stdcall" fn(
-    browser_executable_folder: PCWSTR,
-    version_info: *mut LPWSTR,
-) -> HRESULT;
+extern "stdcall" {
+    pub fn GetAvailableCoreWebView2BrowserVersionString(
+        browser_executable_folder: PCWSTR,
+        version_info: *mut LPWSTR,
+    ) -> HRESULT;
+}
 
 /// This method is for anyone want to compare version correctly to determine
 /// which version is newer, older or same. It can be used to determine whether
@@ -235,8 +244,9 @@ pub type FnGetAvailableCoreWebView2BrowserVersionString = unsafe extern "stdcall
 /// input parameter is null.
 /// Input can directly use the versionInfo obtained from
 /// GetAvailableCoreWebView2BrowserVersionString, channel info will be ignored.
-pub type FnCompareBrowserVersions =
-    unsafe extern "stdcall" fn(version1: PCWSTR, version2: PCWSTR, result: *mut i32) -> HRESULT;
+extern "stdcall" {
+    pub fn CompareBrowserVersions(version1: PCWSTR, version2: PCWSTR, result: *mut i32) -> HRESULT;
+}
 /// A structure representing the information packed into the LPARAM given
 /// to a Win32 key event.  See the documentation for WM_KEYDOWN for details
 /// at https://docs.microsoft.com/windows/win32/inputdev/wm-keydown
@@ -267,8 +277,8 @@ pub enum CapturePreviewImageFormat {
     JPEG,
 }
 
-/// Kind of JavaScript dialog used in the ICoreWebView2ScriptDialogOpeningEventHandler
-/// interface.
+/// Kind of JavaScript dialog used in the
+/// ICoreWebView2ScriptDialogOpeningEventHandler interface.
 #[repr(u32)]
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum ScriptDialogKind {
@@ -282,7 +292,8 @@ pub enum ScriptDialogKind {
     Beforeunload,
 }
 
-/// Kind of process failure used in the ICoreWebView2ProcessFailedEventHandler interface.
+/// Kind of process failure used in the ICoreWebView2ProcessFailedEventHandler
+/// interface.
 #[repr(u32)]
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum ProcessFailedKind {
@@ -296,8 +307,6 @@ pub enum ProcessFailedKind {
     /// The app can use Reload to try to recover from this failure.
     RenderProcessExited,
     /// Indicates the render process becomes unresponsive.
-    /// The app can try to navigate away from the page to recover from the
-    /// failure.
     RenderProcessUnresponsive,
 }
 
@@ -352,13 +361,13 @@ pub enum WebErrorStatus {
     /// The SSL certificate has been revoked.
     CertificateRevoked,
     /// The SSL certificate is invalid -- this could mean the certificate did not
-    /// match the public key pins for the host name, the certificate is signed
-    /// by an untrusted authority or using a weak sign algorithm, the
-    /// certificate claimed DNS names violate name constraints, the certificate
-    /// contains a weak key, the certificate's validity period is too long, lack
-    /// of revocation information or revocation mechanism, non-unique host name,
-    /// lack of certificate transparency information, or the certificate is
-    /// chained to a [legacy Symantec
+    /// match the public key pins for the host name, the certificate is signed by
+    /// an untrusted authority or using a weak sign algorithm, the certificate
+    /// claimed DNS names violate name constraints, the certificate contains a
+    /// weak key, the certificate's validity period is too long, lack of
+    /// revocation information or revocation mechanism, non-unique host name, lack
+    /// of certificate transparency information, or the certificate is chained to
+    /// a [legacy Symantec
     /// root](https://security.googleblog.com/2018/03/distrust-of-symantec-pki-immediate.html).
     CertificateIsInvalid,
     /// The host is unreachable.
@@ -531,10 +540,11 @@ pub enum KeyEventKind {
 /// }
 /// \enddot
 ///
-/// Off of a browser process there will be some number of renderer processes.
+/// Associated with each browser process there will be some number of
+/// render processes.
 /// These are created as
 /// necessary to service potentially multiple frames in different WebViews. The
-/// number of renderer processes varies based on the site isolation browser
+/// number of render processes varies based on the site isolation browser
 /// feature and the number of distinct disconnected origins rendered in
 /// associated WebViews.
 ///
@@ -563,10 +573,10 @@ pub enum KeyEventKind {
 /// }
 /// \enddot
 ///
-/// You can react to crashes and hangs in these browser and renderer processes
+/// You can react to crashes and hangs in these browser and render processes
 /// using the ProcessFailure event.
 ///
-/// You can safely shutdown associated browser and renderer processes using the
+/// You can safely shutdown associated browser and render processes using the
 /// Close method.
 ///
 /// ## Threading model
@@ -597,8 +607,8 @@ pub enum KeyEventKind {
 ///
 /// When constructing a message to send into a WebView, prefer using
 /// PostWebMessageAsJson and construct the JSON string parameter using a JSON
-/// library. This will avoid any potential accidents of encoding information
-/// into a JSON string or script and ensure no attacker controlled input can
+/// library. This will prevent accidentally encoding information into a JSON string
+/// or script, and ensure no attacker controlled input can
 /// modify the rest of the JSON message or run arbitrary script.
 ///
 /// ## String types
@@ -615,8 +625,8 @@ pub enum KeyEventKind {
 /// Various methods provide or accept URIs and JSON as strings. Please use your
 /// own preferred library for parsing and generating these strings.
 ///
-/// If WinRT is available for your app you can use `RuntimeClass_Windows_Data_Json_JsonObject`
-/// and `IJsonObjectStatics` to parse or produce JSON strings or `RuntimeClass_Windows_Foundation_Uri`
+/// If WinRT is available for your app you can use `Windows.Data.Json.JsonObject`
+/// and `IJsonObjectStatics` to parse or produce JSON strings or `Windows.Foundation.Uri`
 /// and `IUriRuntimeClassFactory` to parse and produce URIs. Both of these work
 /// in Win32 apps.
 ///
@@ -631,8 +641,7 @@ pub enum KeyEventKind {
 /// have the DevTools window open immediately when first creating a WebView. See
 /// CreateCoreWebView2Controller documentation for how to provide additional command
 /// line arguments to the browser process.
-/// Check out the LoaderOverride registry key for trying out different builds of
-/// WebView2 without modifying your application in the CreateCoreWebView2Controller
+/// Check out the LoaderOverride registry key in the CreateCoreWebView2Controller
 /// documentation.
 ///
 /// ## Versioning
@@ -657,7 +666,7 @@ pub enum KeyEventKind {
 /// When an interface is unavailable, you can consider disabling the associated
 /// feature if possible, or otherwise informing the end user they need to update
 /// their browser.
-#[com_interface("189B8AAF-0426-4748-B9AD-243F537EB46B")]
+#[com_interface("76eceacb-0462-4d94-ac83-423a6793775e")]
 pub trait ICoreWebView2: IUnknown {
     /// The ICoreWebView2Settings object contains various modifiable settings for
     /// the running WebView.
@@ -684,8 +693,8 @@ pub trait ICoreWebView2: IUnknown {
     unsafe fn navigate(&self, /* in */ uri: LPCWSTR) -> HRESULT;
 
     /// Initiates a navigation to htmlContent as source HTML of a new
-    /// document. The htmlContent parameter may not be larger than 2 MB of
-    /// characters. The origin of the new page will be about:blank.
+    /// document. The htmlContent parameter may not be larger than 2 MB
+    /// in total size. The origin of the new page will be about:blank.
     ///
     /// \snippet SettingsComponent.cpp NavigateToString
     unsafe fn navigate_to_string(&self, /* in */ html_content: LPCWSTR) -> HRESULT;
@@ -694,6 +703,8 @@ pub trait ICoreWebView2: IUnknown {
     /// NavigationStarting fires when the WebView main frame is
     /// requesting permission to navigate to a different URI. This will fire for
     /// redirects as well.
+    ///
+    /// Corresponding navigations can be blocked until the event handler returns.
     ///
     /// \snippet SettingsComponent.cpp NavigationStarting
     unsafe fn add_navigation_starting(
@@ -709,8 +720,8 @@ pub trait ICoreWebView2: IUnknown {
     ) -> HRESULT;
 
     /// Add an event handler for the ContentLoading event.
-    /// ContentLoading fires before any content is loaded, including scripts added with
-    /// AddScriptToExecuteOnDocumentCreated
+    /// ContentLoading fires before any content is loaded, including scripts added
+    /// with AddScriptToExecuteOnDocumentCreated.
     /// ContentLoading will not fire if a same page navigation occurs
     /// (such as through fragment navigations or history.pushState navigations).
     /// This follows the NavigationStarting and SourceChanged events and
@@ -724,12 +735,14 @@ pub trait ICoreWebView2: IUnknown {
     /// Remove an event handler previously added with add_ContentLoading.
     unsafe fn remove_content_loading(&self, /* in */ token: EventRegistrationToken) -> HRESULT;
 
+    /// Add an event handler for the SourceChanged event.
     /// SourceChanged fires when the Source property changes.
-    /// SourceChanged fires for navigating to a different site or fragment navigations.
-    /// It will not fires for other types of navigations such as page reloads or
+    /// SourceChanged fires for navigating to a different site or fragment
+    /// navigations.
+    /// It will not fire for other types of navigations such as page reloads or
     /// history.pushState with the same URL as the current page.
     /// SourceChanged fires before ContentLoading for navigation to a new document.
-    /// Add an event handler for the SourceChanged event.
+    ///
     /// \snippet ControlComponent.cpp SourceChanged
     unsafe fn add_source_changed(
         &self,
@@ -740,11 +753,12 @@ pub trait ICoreWebView2: IUnknown {
     /// Remove an event handler previously added with add_SourceChanged.
     unsafe fn remove_source_changed(&self, /* in */ token: EventRegistrationToken) -> HRESULT;
 
-    /// HistoryChange listen to the change of navigation history for the top level
-    /// document. Use HistoryChange to check if CanGoBack/CanGoForward value
-    /// has changed. HistoryChanged also fires for using GoBack/GoForward.
-    /// HistoryChanged fires after SourceChanged and ContentLoading.
     /// Add an event handler for the HistoryChanged event.
+    /// HistoryChanged listens to the change of navigation history for the top
+    /// level document. Use HistoryChanged to check if CanGoBack/CanGoForward
+    /// value has changed. HistoryChanged also fires for using GoBack/GoForward.
+    /// HistoryChanged fires after SourceChanged and ContentLoading.
+    ///
     /// \snippet ControlComponent.cpp HistoryChanged
     unsafe fn add_history_changed(
         &self,
@@ -756,7 +770,7 @@ pub trait ICoreWebView2: IUnknown {
     unsafe fn remove_history_changed(&self, /* in */ token: EventRegistrationToken) -> HRESULT;
 
     /// Add an event handler for the NavigationCompleted event.
-    /// NavigationCompleted event fires when the WebView has completely loaded
+    /// NavigationCompleted fires when the WebView has completely loaded
     /// (body.onload has fired) or loading stopped with error.
     ///
     /// \snippet ControlComponent.cpp NavigationCompleted
@@ -774,8 +788,10 @@ pub trait ICoreWebView2: IUnknown {
 
     /// Add an event handler for the FrameNavigationStarting event.
     /// FrameNavigationStarting fires when a child frame in the WebView
-    /// requesting permission to navigate to a different URI. This will fire for
+    /// requests permission to navigate to a different URI. This will fire for
     /// redirects as well.
+    ///
+    /// Corresponding navigations can be blocked until the event handler returns.
     ///
     /// \snippet SettingsComponent.cpp FrameNavigationStarting
     unsafe fn add_frame_navigation_starting(
@@ -791,7 +807,7 @@ pub trait ICoreWebView2: IUnknown {
     ) -> HRESULT;
 
     /// Add an event handler for the FrameNavigationCompleted event.
-    /// FrameNavigationCompleted event fires when a child frame has completely
+    /// FrameNavigationCompleted fires when a child frame has completely
     /// loaded (body.onload has fired) or loading stopped with error.
     ///
     /// \snippet ControlComponent.cpp FrameNavigationCompleted
@@ -808,11 +824,15 @@ pub trait ICoreWebView2: IUnknown {
     ) -> HRESULT;
 
     /// Add an event handler for the ScriptDialogOpening event.
-    /// The event fires when a JavaScript dialog (alert, confirm, or prompt) will
-    /// show for the webview. This event only fires if the
-    /// ICoreWebView2Settings::AreDefaultScriptDialogsEnabled property is set to
-    /// false. The ScriptDialogOpening event can be used to suppress dialogs or
-    /// replace default dialogs with custom dialogs.
+    /// ScriptDialogOpening fires when a JavaScript dialog (alert, confirm,
+    /// prompt, or beforeunload) will show for the webview. This event only fires
+    /// if the ICoreWebView2Settings::AreDefaultScriptDialogsEnabled property is
+    /// set to false. The ScriptDialogOpening event can be used to suppress
+    /// dialogs or replace default dialogs with custom dialogs.
+    ///
+    /// If a deferral is not taken on the event args, the subsequent scripts can be
+    /// blocked until the event handler returns. If a deferral is taken, then the
+    /// scripts are blocked until the deferral is completed.
     ///
     /// \snippet SettingsComponent.cpp ScriptDialogOpening
     unsafe fn add_script_dialog_opening(
@@ -828,8 +848,12 @@ pub trait ICoreWebView2: IUnknown {
     ) -> HRESULT;
 
     /// Add an event handler for the PermissionRequested event.
-    /// Fires when content in a WebView requests permission to access some
-    /// privileged resources.
+    /// PermissionRequested fires when content in a WebView requests permission to
+    /// access some privileged resources.
+    ///
+    /// If a deferral is not taken on the event args, the subsequent scripts can
+    /// be blocked until the event handler returns. If a deferral is taken, then
+    /// the scripts are blocked until the deferral is completed.
     ///
     /// \snippet SettingsComponent.cpp PermissionRequested
     unsafe fn add_permission_requested(
@@ -845,8 +869,8 @@ pub trait ICoreWebView2: IUnknown {
     ) -> HRESULT;
 
     /// Add an event handler for the ProcessFailed event.
-    /// Fires when a WebView process terminated unexpectedly or
-    /// become unresponsive.
+    /// ProcessFailed fires when a WebView process is terminated unexpectedly or
+    /// becomes unresponsive.
     ///
     /// \snippet ProcessComponent.cpp ProcessFailed
     unsafe fn add_process_failed(
@@ -858,21 +882,21 @@ pub trait ICoreWebView2: IUnknown {
     /// Remove an event handler previously added with add_ProcessFailed.
     unsafe fn remove_process_failed(&self, /* in */ token: EventRegistrationToken) -> HRESULT;
 
-    /// Add the provided JavaScript to a list of scripts
-    /// that should be executed after the global object has been created, but
-    /// before the HTML document has been parsed and before any other script
-    /// included by the HTML document is executed. The
-    /// injected script will apply to all future top level document and child
-    /// frame navigations until removed with RemoveScriptToExecuteOnDocumentCreated.
-    /// This is applied asynchronously and you must wait for the completion
-    /// handler to run before you can be sure that the script is ready to
-    /// execute on future navigations.
-    /// The handler's Invoke method will be called when the method asynchronously
-    /// completes. Invoke will be called with the id associated with the injected
-    /// script as a string.
+    /// Add the provided JavaScript to a list of scripts that should be executed
+    /// after the global object has been created, but before the HTML document has
+    /// been parsed and before any other script included by the HTML document is
+    /// executed. This method injects a script that runs on all top-level document
+    /// and child frame page navigations.
+    /// This method runs asynchronously, and you must wait for the completion
+    /// handler to finish before the injected script is ready to run. When this
+    /// method completes, the handler's `Invoke` method is called with the `id` of
+    /// the injected script. `id` is a string. To remove the injected script, use
+    /// `RemoveScriptToExecuteOnDocumentCreated`.
     ///
-    /// Note that if an HTML document has sandboxing of some kind via [sandbox](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/iframe#attr-sandbox)
-    /// properties or the [Content-Security-Policy HTTP header](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Security-Policy)
+    /// Note that if an HTML document has sandboxing of some kind via
+    /// [sandbox](https://developer.mozilla.org/docs/Web/HTML/Element/iframe#attr-sandbox)
+    /// properties or the [Content-Security-Policy HTTP
+    /// header](https://developer.mozilla.org/docs/Web/HTTP/Headers/Content-Security-Policy)
     /// this will affect the script run here. So, for example, if the
     /// 'allow-modals' keyword is not set then calls to the `alert` function will
     /// be ignored.
@@ -885,7 +909,7 @@ pub trait ICoreWebView2: IUnknown {
         handler: *mut *mut ICoreWebView2AddScriptToExecuteOnDocumentCreatedCompletedHandlerVTable,
     ) -> HRESULT;
 
-    /// Remove the corresponding JavaScript added via AddScriptToExecuteOnDocumentCreated
+    /// Remove the corresponding JavaScript added using `AddScriptToExecuteOnDocumentCreated`
     /// with the specified script id.
     unsafe fn remove_script_to_execute_on_document_created(
         &self,
@@ -906,8 +930,9 @@ pub trait ICoreWebView2: IUnknown {
     /// also 'null'.
     /// This method is applied asynchronously. If the method is called after
     /// NavigationStarting event during a navigation, the script will be executed
-    /// in the new document when loading it, around the time ContentLoading is fired.
-    /// ExecuteScript will work even if IsScriptEnabled is set to FALSE.
+    /// in the new document when loading it, around the time ContentLoading is
+    /// fired. ExecuteScript will work even if
+    /// ICoreWebView2Settings::IsScriptEnabled is set to FALSE.
     ///
     /// \snippet ScriptComponent.cpp ExecuteScript
     unsafe fn execute_script(
@@ -947,14 +972,14 @@ pub trait ICoreWebView2: IUnknown {
     /// ```
     ///
     /// The event args is an instance of `MessageEvent`.
-    /// The ICoreWebView2Settings::IsWebMessageEnabled setting must be true or this method
-    /// will fail with E_INVALIDARG.
+    /// The ICoreWebView2Settings::IsWebMessageEnabled setting must be true or
+    /// this method will fail with E_INVALIDARG.
     /// The event arg's data property is the webMessage string parameter parsed
     /// as a JSON string into a JavaScript object.
     /// The event arg's source property is a reference to the
     /// `window.chrome.webview` object.
-    /// See SetWebMessageReceivedEventHandler for information on sending messages
-    /// from the HTML document in the webview to the host.
+    /// See add_WebMessageReceived for information on sending messages from the
+    /// HTML document in the WebView to the host.
     /// This message is sent asynchronously. If a navigation occurs before the
     /// message is posted to the page, then the message will not be sent.
     ///
@@ -976,16 +1001,17 @@ pub trait ICoreWebView2: IUnknown {
         /* in */ web_message_as_string: LPCWSTR,
     ) -> HRESULT;
 
-    /// This event fires when the IsWebMessageEnabled setting is set and the top
-    /// level document of the webview calls `window.chrome.webview.postMessage`.
+    /// Add an event handler for the WebMessageReceived event.
+    /// WebMessageReceived fires when the
+    /// ICoreWebView2Settings::IsWebMessageEnabled setting is set and the top
+    /// level document of the WebView calls `window.chrome.webview.postMessage`.
     /// The postMessage function is `void postMessage(object)` where
     /// object is any object supported by JSON conversion.
     ///
     /// \snippet ScenarioWebMessage.html chromeWebView
     ///
-    /// When postMessage is called, the ICoreWebView2WebMessageReceivedEventHandler set via
-    /// this SetWebMessageReceivedEventHandler method will be invoked with the
-    /// postMessage's object parameter converted to a JSON string.
+    /// When postMessage is called, the handler's Invoke method will be called
+    /// with the postMessage's object parameter converted to a JSON string.
     ///
     /// \snippet ScenarioWebMessage.cpp WebMessageReceived
     unsafe fn add_web_message_received(
@@ -1023,11 +1049,13 @@ pub trait ICoreWebView2: IUnknown {
     /// The process id of the browser process that hosts the WebView.
     unsafe fn get_browser_process_id(&self, /* out, retval */ value: *mut UINT32) -> HRESULT;
 
-    /// Returns true if the webview can navigate to a previous page in the navigation history.
+    /// Returns true if the WebView can navigate to a previous page in the
+    /// navigation history.
     /// The HistoryChanged event will fire if CanGoBack changes value.
     unsafe fn get_can_go_back(&self, /* out, retval */ can_go_back: *mut BOOL) -> HRESULT;
 
-    /// Returns true if the webview can navigate to a next page in the navigation history.
+    /// Returns true if the WebView can navigate to a next page in the navigation
+    /// history.
     /// The HistoryChanged event will fire if CanGoForward changes value.
     unsafe fn get_can_go_forward(
         &self,
@@ -1060,9 +1088,14 @@ pub trait ICoreWebView2: IUnknown {
     unsafe fn stop(&self) -> HRESULT;
 
     /// Add an event handler for the NewWindowRequested event.
-    /// Fires when content inside the WebView requested to open a new window,
-    /// such as through window.open. The app can pass a target
-    /// webview that will be considered the opened window.
+    /// NewWindowRequested fires when content inside the WebView requests to open
+    /// a new window, such as through window.open. The app can pass a target
+    /// WebView that will be considered the opened window.
+    ///
+    /// Scripts resulted in the new window requested can be blocked until the
+    /// event handler returns if a deferral is not taken on the event args. If a
+    /// deferral is taken, then scripts are blocked until the deferral is
+    /// completed.
     ///
     /// \snippet AppWindow.cpp NewWindowRequested
     unsafe fn add_new_window_requested(
@@ -1078,8 +1111,8 @@ pub trait ICoreWebView2: IUnknown {
     ) -> HRESULT;
 
     /// Add an event handler for the DocumentTitleChanged event.
-    /// The event fires when the DocumentTitle property of the WebView changes
-    /// and may fire before or after the NavigationCompleted event.
+    /// DocumentTitleChanged fires when the DocumentTitle property of the WebView
+    /// changes and may fire before or after the NavigationCompleted event.
     ///
     /// \snippet FileComponent.cpp DocumentTitleChanged
     unsafe fn add_document_title_changed(
@@ -1256,13 +1289,14 @@ pub trait ICoreWebView2: IUnknown {
     unsafe fn remove_host_object_from_script(&self, /* in */ name: LPCWSTR) -> HRESULT;
 
     /// Opens the DevTools window for the current document in the WebView.
-    /// Does nothing if called when the DevTools window is already open
+    /// Does nothing if called when the DevTools window is already open.
     unsafe fn open_dev_tools_window(&self) -> HRESULT;
 
-    /// Notifies when the ContainsFullScreenElement property changes. This means
-    /// that an HTML element inside the WebView is entering fullscreen to the size
-    /// of the WebView or leaving fullscreen.
-    /// This event is useful when, for example, a video element requests to go
+    /// Add an event handler for the ContainsFullScreenElementChanged event.
+    /// ContainsFullScreenElementChanged fires when the ContainsFullScreenElement
+    /// property changes. This means that an HTML element inside the WebView is
+    /// entering fullscreen to the size of the WebView or leaving fullscreen. This
+    /// event is useful when, for example, a video element requests to go
     /// fullscreen. The listener of ContainsFullScreenElementChanged can then
     /// resize the WebView in response.
     ///
@@ -1274,8 +1308,8 @@ pub trait ICoreWebView2: IUnknown {
         /* out */ token: *mut EventRegistrationToken,
     ) -> HRESULT;
 
-    /// Remove an event handler previously added with the corresponding add_
-    /// event method.
+    /// Remove an event handler previously added with
+    /// add_ContainsFullScreenElementChanged.
     unsafe fn remove_contains_full_screen_element_changed(
         &self,
         /* in */ token: EventRegistrationToken,
@@ -1287,10 +1321,15 @@ pub trait ICoreWebView2: IUnknown {
         /* out, retval */ contains_full_screen_element: *mut BOOL,
     ) -> HRESULT;
 
-    /// Add an event handler for the WebResourceRequested event. Fires when the
-    /// WebView is performing a URL request to a matching URL and resource context
-    /// filter that was added with AddWebResourceRequestedFilter. At least one
-    /// filter must be added for the event to fire.
+    /// Add an event handler for the WebResourceRequested event.
+    /// WebResourceRequested fires when the WebView is performing a URL request to
+    /// a matching URL and resource context filter that was added with
+    /// AddWebResourceRequestedFilter. At least one filter must be added for the
+    /// event to fire.
+    ///
+    /// The web resource requested can be blocked until the event handler returns
+    /// if a deferral is not taken on the event args. If a deferral is taken, then
+    /// the web resource requested is blocked until the deferral is completed.
     ///
     /// \snippet SettingsComponent.cpp WebResourceRequested
     unsafe fn add_web_resource_requested(
@@ -1307,9 +1346,10 @@ pub trait ICoreWebView2: IUnknown {
     ) -> HRESULT;
 
     /// Adds a URI and resource context filter to the WebResourceRequested event.
-    /// URI parameter can be a wildcard string ('': zero or more, '?': exactly one).
-    /// nullptr is equivalent to L"".
-    /// See COREWEBVIEW2_WEB_RESOURCE_CONTEXT enum for description of resource context filters.
+    /// The URI parameter can be a wildcard string ('*': zero or more, '?':
+    /// exactly one). nullptr is equivalent to L"".
+    /// See COREWEBVIEW2_WEB_RESOURCE_CONTEXT enum for description of resource
+    /// context filters.
     unsafe fn add_web_resource_requested_filter(
         &self,
         /* in */ uri: LPCWSTR,
@@ -1317,9 +1357,10 @@ pub trait ICoreWebView2: IUnknown {
     ) -> HRESULT;
 
     /// Removes a matching WebResource filter that was previously added for the
-    /// WebResourceRequested event. If the same filter was added multiple times, then it
-    /// will need to be removed as many times as it was added for the removal to be
-    /// effective. Returns E_INVALIDARG for a filter that was never added.
+    /// WebResourceRequested event. If the same filter was added multiple times,
+    /// then it will need to be removed as many times as it was added for the
+    /// removal to be effective. Returns E_INVALIDARG for a filter that was never
+    /// added.
     unsafe fn remove_web_resource_requested_filter(
         &self,
         /* in */ uri: LPCWSTR,
@@ -1327,9 +1368,9 @@ pub trait ICoreWebView2: IUnknown {
     ) -> HRESULT;
 
     /// Add an event handler for the WindowCloseRequested event.
-    /// Fires when content inside the WebView requested to close the window,
-    /// such as after window.close is called. The app should close the WebView
-    /// and related app window if that makes sense to the app.
+    /// WindowCloseRequested fires when content inside the WebView requested to
+    /// close the window, such as after window.close is called. The app should
+    /// close the WebView and related app window if that makes sense to the app.
     ///
     /// \snippet AppWindow.cpp WindowCloseRequested
     unsafe fn add_window_close_requested(
@@ -1351,12 +1392,12 @@ pub trait ICoreWebView2: IUnknown {
 /// to windowing and composition. The CoreWebView2Controller owns the CoreWebView2,
 /// and if all references to the CoreWebView2Controller go away, the WebView will
 /// be closed.
-#[com_interface("7CCC5C7F-8351-4572-9077-9C1C80913835")]
+#[com_interface("4d00c0d1-9434-4eb6-8078-8697a560334f")]
 pub trait ICoreWebView2Controller: IUnknown {
-    /// The IsVisible property determines whether to show or hide the webview.
-    /// If IsVisible is set to false, the webview will be transparent and will
+    /// The IsVisible property determines whether to show or hide the WebView.
+    /// If IsVisible is set to false, the WebView will be transparent and will
     /// not be rendered.  However, this will not affect the window containing
-    /// the webview (the HWND parameter that was passed to CreateCoreWebView2Controller).
+    /// the WebView (the HWND parameter that was passed to CreateCoreWebView2Controller).
     /// If you want that window to disappear too, call ShowWindow on it directly
     /// in addition to modifying the IsVisible property.
     /// WebView as a child window won't get window messages when the top window
@@ -1374,7 +1415,7 @@ pub trait ICoreWebView2Controller: IUnknown {
     /// \snippet ViewComponent.cpp ToggleIsVisibleOnMinimize
     unsafe fn put_is_visible(&self, /* in */ is_visible: BOOL) -> HRESULT;
 
-    /// The webview bounds.
+    /// The WebView bounds.
     /// Bounds are relative to the parent HWND. The app has two ways it can
     /// position a WebView:
     /// 1. Create a child HWND that is the WebView parent HWND. Position this
@@ -1408,7 +1449,7 @@ pub trait ICoreWebView2Controller: IUnknown {
     /// applied zoom factor. When this range normalization happens, the
     /// ZoomFactor property will report the zoom factor specified during the
     /// previous modification of the ZoomFactor property until the
-    /// ZoomFactorChanged event is received after webview applies the normalized
+    /// ZoomFactorChanged event is received after WebView applies the normalized
     /// zoom factor.
     unsafe fn get_zoom_factor(&self, /* out, retval */ zoom_factor: *mut f64) -> HRESULT;
 
@@ -1416,7 +1457,7 @@ pub trait ICoreWebView2Controller: IUnknown {
     unsafe fn put_zoom_factor(&self, /* in */ zoom_factor: f64) -> HRESULT;
 
     /// Add an event handler for the ZoomFactorChanged event.
-    /// The event fires when the ZoomFactor property of the WebView changes.
+    /// ZoomFactorChanged fires when the ZoomFactor property of the WebView changes.
     /// The event could fire because the caller modified the ZoomFactor property,
     /// or due to the user manually modifying the zoom. When it is modified by the
     /// caller via the ZoomFactor property, the internal zoom factor is updated
@@ -1511,7 +1552,7 @@ pub trait ICoreWebView2Controller: IUnknown {
     /// Add an event handler for the LostFocus event.
     /// LostFocus fires when WebView lost focus.
     /// In the case where MoveFocusRequested event is fired, the focus is still
-    /// on WebView when MoveFocusRequested event fires. Lost focus only fires
+    /// on WebView when MoveFocusRequested event fires. LostFocus only fires
     /// afterwards when app's code or default action of MoveFocusRequested event
     /// set focus away from WebView.
     unsafe fn add_lost_focus(
@@ -1537,17 +1578,17 @@ pub trait ICoreWebView2Controller: IUnknown {
     /// KeyEventLParam or PhysicalKeyStatus.
     ///
     /// In windowed mode, this event handler is called synchronously. Until you
-    /// call Handle() on the event args or the event handler returns, the browser
+    /// call Handled() on the event args or the event handler returns, the browser
     /// process will be blocked and outgoing cross-process COM calls will fail
     /// with RPC_E_CANTCALLOUT_ININPUTSYNCCALL. All CoreWebView2 API methods will
     /// work, however.
     ///
     /// In windowless mode, the event handler is called asynchronously.  Further
     /// input will not reach the browser until the event handler returns or
-    /// Handle() is called, but the browser process itself will not be blocked,
+    /// Handled() is called, but the browser process itself will not be blocked,
     /// and outgoing COM calls will work normally.
     ///
-    /// It is recommended to call Handle(TRUE) as early as you can know that you want
+    /// It is recommended to call Handled(TRUE) as early as you can know that you want
     /// to handle the accelerator key.
     ///
     /// \snippet ControlComponent.cpp AcceleratorKeyPressed
@@ -1612,7 +1653,7 @@ pub trait ICoreWebView2Controller: IUnknown {
 
 /// This interface is used to complete deferrals on event args that
 /// support getting deferrals via their GetDeferral method.
-#[com_interface("A7ED8BF0-3EC9-4E39-8427-3D6F157BD285")]
+#[com_interface("c10e7f7b-b585-46f0-a623-8befbf3e4ee0")]
 pub trait ICoreWebView2Deferral: IUnknown {
     /// Completes the associated deferred event. Complete should only be
     /// called once for each deferral taken.
@@ -1622,7 +1663,7 @@ pub trait ICoreWebView2Deferral: IUnknown {
 /// Defines properties that enable, disable, or modify WebView
 /// features. Setting changes made after NavigationStarting event will not
 /// apply until the next top level navigation.
-#[com_interface("203FBA37-6850-4DCC-A25A-58A351AC625D")]
+#[com_interface("e562e4f0-d7fa-43ac-8d71-c05150499f00")]
 pub trait ICoreWebView2Settings: IUnknown {
     /// Controls if JavaScript execution is enabled in all future
     /// navigations in the WebView.  This only affects scripts in the document;
@@ -1640,13 +1681,13 @@ pub trait ICoreWebView2Settings: IUnknown {
 
     /// The IsWebMessageEnabled property is used when loading a new
     /// HTML document. If set to true, communication from the host to the
-    /// webview's top level HTML document is allowed via PostWebMessageAsJson,
+    /// WebView's top level HTML document is allowed via PostWebMessageAsJson,
     /// PostWebMessageAsString, and window.chrome.webview's message event
     /// (see PostWebMessageAsJson documentation for details).
-    /// Communication from the webview's top level HTML document
-    /// to the host is allowed via window.chrome.webview's postMessage function
-    /// and the SetWebMessageReceivedEventHandler method (see the
-    /// SetWebMessageReceivedEventHandler documentation for details).
+    /// Communication from the WebView's top level HTML document to the host is
+    /// allowed via window.chrome.webview's postMessage function and
+    /// add_WebMessageReceived method (see add_WebMessageReceived documentation
+    /// for details).
     /// If set to false, then communication is disallowed.
     /// PostWebMessageAsJson and PostWebMessageAsString will
     /// fail with E_ACCESSDENIED and window.chrome.webview.postMessage will fail
@@ -1665,13 +1706,13 @@ pub trait ICoreWebView2Settings: IUnknown {
         /* in */ is_web_message_enabled: BOOL,
     ) -> HRESULT;
 
-    /// AreDefaultScriptDialogsEnabled is used when loading a new
-    /// HTML document. If set to false, then WebView won't render the default
-    /// javascript dialog box (Specifically those shown by the javascript alert,
-    /// confirm, prompt functions and beforeunload event). Instead, if an event
-    /// handler is set by SetScriptDialogOpeningEventHandler, WebView will send an
-    /// event that will contain all of the information for the dialog and allow
-    /// the host app to show its own custom UI.
+    /// AreDefaultScriptDialogsEnabled is used when loading a new HTML document.
+    /// If set to false, then WebView won't render the default JavaScript dialog
+    /// box (Specifically those shown by the JavaScript alert, confirm, prompt
+    /// functions and beforeunload event). Instead, if an event handler is set via
+    /// add_ScriptDialogOpening, WebView will send an event that will contain all
+    /// of the information for the dialog and allow the host app to show its own
+    /// custom UI. It is true by default.
     unsafe fn get_are_default_script_dialogs_enabled(
         &self,
         /* out, retval */ are_default_script_dialogs_enabled: *mut BOOL,
@@ -1713,7 +1754,8 @@ pub trait ICoreWebView2Settings: IUnknown {
     ) -> HRESULT;
 
     /// The AreDefaultContextMenusEnabled property is used to prevent
-    /// default context menus from being shown to user in webview. Defaults to TRUE.
+    /// default context menus from being shown to user in WebView.
+    /// It is true by default.
     ///
     /// \snippet SettingsComponent.cpp DisableContextMenu
     unsafe fn get_are_default_context_menus_enabled(
@@ -1721,11 +1763,12 @@ pub trait ICoreWebView2Settings: IUnknown {
         /* out, retval */ enabled: *mut BOOL,
     ) -> HRESULT;
 
-    /// Set the AreDefaultContextMenusEnabled property
+    /// Set the AreDefaultContextMenusEnabled property.
     unsafe fn put_are_default_context_menus_enabled(&self, /* in */ enabled: BOOL) -> HRESULT;
 
     /// The AreHostObjectsAllowed property is used to control whether
-    /// host objects are accessible from the page in webview. Defaults to TRUE.
+    /// host objects are accessible from the page in WebView.
+    /// It is true by default.
     ///
     /// \snippet SettingsComponent.cpp HostObjectsAccess
     unsafe fn get_are_host_objects_allowed(
@@ -1733,11 +1776,11 @@ pub trait ICoreWebView2Settings: IUnknown {
         /* out, retval */ allowed: *mut BOOL,
     ) -> HRESULT;
 
-    /// Set the AreHostObjectsAllowed property
+    /// Set the AreHostObjectsAllowed property.
     unsafe fn put_are_host_objects_allowed(&self, /* in */ allowed: BOOL) -> HRESULT;
 
     /// The IsZoomControlEnabled property is used to prevent the user from
-    /// impacting the zoom of the WebView. Defaults to TRUE.
+    /// impacting the zoom of the WebView. It is true by default.
     /// When disabled, user will not be able to zoom using ctrl+/- or
     /// ctrl+mouse wheel, but the zoom can be set via ZoomFactor API.
     ///
@@ -1747,11 +1790,12 @@ pub trait ICoreWebView2Settings: IUnknown {
         /* out, retval */ enabled: *mut BOOL,
     ) -> HRESULT;
 
-    /// Set the IsZoomControlEnabled property
+    /// Set the IsZoomControlEnabled property.
     unsafe fn put_is_zoom_control_enabled(&self, /* in */ enabled: BOOL) -> HRESULT;
 
     /// The IsBuiltInErrorPageEnabled property is used to disable built in error
-    /// page for navigation failure and render process failure. Defaults to TRUE.
+    /// page for navigation failure and render process failure. It is true by
+    /// default.
     /// When disabled, blank page will be shown when related error happens.
     ///
     /// \snippet SettingsComponent.cpp BuiltInErrorPageEnabled
@@ -1760,12 +1804,12 @@ pub trait ICoreWebView2Settings: IUnknown {
         /* out, retval */ enabled: *mut BOOL,
     ) -> HRESULT;
 
-    /// Set the IsBuiltInErrorPageEnabled property
+    /// Set the IsBuiltInErrorPageEnabled property.
     unsafe fn put_is_built_in_error_page_enabled(&self, /* in */ enabled: BOOL) -> HRESULT;
 }
 
 /// Event args for the ProcessFailed event.
-#[com_interface("EA45D1F4-75C0-471F-A6E9-803FBFF8FEF2")]
+#[com_interface("8155a9a4-1474-4a86-8cae-151b0fa6b8ca")]
 pub trait ICoreWebView2ProcessFailedEventArgs: IUnknown {
     /// The kind of process failure that has occurred.
     unsafe fn get_process_failed_kind(
@@ -1775,7 +1819,7 @@ pub trait ICoreWebView2ProcessFailedEventArgs: IUnknown {
 }
 
 /// The caller implements this interface to receive ProcessFailed events.
-#[com_interface("7D2183F9-CCA8-40F2-91A9-EAFAD32C8A9B")]
+#[com_interface("79e0aea4-990b-42d9-aa1d-0fcc2e5bc7f1")]
 pub trait ICoreWebView2ProcessFailedEventHandler: IUnknown {
     /// Called to provide the implementer with the event args for the
     /// corresponding event.
@@ -1789,7 +1833,7 @@ pub trait ICoreWebView2ProcessFailedEventHandler: IUnknown {
 /// The caller implements this interface to receive ZoomFactorChanged
 /// events. Use the ICoreWebView2Controller.ZoomFactor property to get the
 /// modified zoom factor.
-#[com_interface("F1828246-8B98-4274-B708-ECDB6BF3843A")]
+#[com_interface("b52d71d6-c4df-4543-a90c-64a3e60f38cb")]
 pub trait ICoreWebView2ZoomFactorChangedEventHandler: IUnknown {
     /// Called to provide the implementer with the event args for the
     /// corresponding event. There are no event args and the args
@@ -1803,8 +1847,9 @@ pub trait ICoreWebView2ZoomFactorChangedEventHandler: IUnknown {
 
 /// Iterator for a collection of HTTP headers. See ICoreWebView2HttpRequestHeaders
 /// and ICoreWebView2HttpResponseHeaders.
+///
 /// \snippet ScenarioWebViewEventMonitor.cpp HttpRequestHeaderIterator
-#[com_interface("4212F3A7-0FBC-4C9C-8118-17ED6370C1B3")]
+#[com_interface("0702fc30-f43b-47bb-ab52-a42cb552ad9f")]
 pub trait ICoreWebView2HttpHeadersCollectionIterator: IUnknown {
     /// Get the name and value of the current HTTP header of the iterator. This
     /// method will fail if the last call to MoveNext set has_next to FALSE.
@@ -1825,14 +1870,14 @@ pub trait ICoreWebView2HttpHeadersCollectionIterator: IUnknown {
     /// Move the iterator to the next HTTP header in the collection. The hasNext
     /// parameter will be set to FALSE if there are no more HTTP headers. After
     /// this occurs the GetCurrentHeader method will fail if called.
-    unsafe fn move_next(&self, /* out */ has_next: *mut BOOL) -> HRESULT;
+    unsafe fn move_next(&self, /* out, retval */ has_next: *mut BOOL) -> HRESULT;
 }
 
 /// HTTP request headers. Used to inspect the HTTP request on
 /// WebResourceRequested event and NavigationStarting event.
 /// Note, you can modify the HTTP request headers from a WebResourceRequested event,
 /// but not from a NavigationStarting event.
-#[com_interface("2C1F04DF-C90E-49E4-BD25-4A659300337B")]
+#[com_interface("e86cac0e-5523-465c-b536-8fb9fc8c8c60")]
 pub trait ICoreWebView2HttpRequestHeaders: IUnknown {
     /// Gets the header value matching the name.
     unsafe fn get_header(
@@ -1876,7 +1921,7 @@ pub trait ICoreWebView2HttpRequestHeaders: IUnknown {
 
 /// HTTP response headers. Used to construct a WebResourceResponse for the
 /// WebResourceRequested event.
-#[com_interface("B5F6D4D5-1BFF-4869-85B8-158153017B04")]
+#[com_interface("03c5ff5a-9b45-4a88-881c-89a9f328619c")]
 pub trait ICoreWebView2HttpResponseHeaders: IUnknown {
     /// Appends header line with name and value.
     unsafe fn append_header(
@@ -1916,7 +1961,7 @@ pub trait ICoreWebView2HttpResponseHeaders: IUnknown {
 }
 
 /// An HTTP request used with the WebResourceRequested event.
-#[com_interface("11B02254-B827-49F6-8974-30F6E6C55AF6")]
+#[com_interface("97055cd4-512c-4264-8b5f-e3f446cea6a5")]
 pub trait ICoreWebView2WebResourceRequest: IUnknown {
     /// The request URI.
     unsafe fn get_uri(&self, /* out, retval */ uri: *mut LPWSTR) -> HRESULT;
@@ -1936,7 +1981,7 @@ pub trait ICoreWebView2WebResourceRequest: IUnknown {
     /// response's WebResourceRequested event deferral is completed. Stream
     /// should be agile or be created from a background STA to prevent performance
     /// impact to the UI thread. Null means no content data. IStream semantics
-    /// apply (return S_OK to Read calls until all data is exhausted)
+    /// apply (return S_OK to Read calls until all data is exhausted).
     unsafe fn get_content(
         &self,
         /* out, retval */ content: *mut *mut *mut IStreamVTable,
@@ -1953,14 +1998,14 @@ pub trait ICoreWebView2WebResourceRequest: IUnknown {
 }
 
 /// An HTTP response used with the WebResourceRequested event.
-#[com_interface("5953D1FC-B08F-46DD-AFD3-66B172419CD0")]
+#[com_interface("aafcc94f-fa27-48fd-97df-830ef75aaec9")]
 pub trait ICoreWebView2WebResourceResponse: IUnknown {
     /// HTTP response content as stream. Stream must have all the
     /// content data available by the time this response's WebResourceRequested
     /// event deferral is completed. Stream should be agile or be created from
     /// a background thread to prevent performance impact to the UI thread.
     /// Null means no content data. IStream semantics
-    /// apply (return S_OK to Read calls until all data is exhausted)
+    /// apply (return S_OK to Read calls until all data is exhausted).
     unsafe fn get_content(
         &self,
         /* out, retval */ content: *mut *mut *mut IStreamVTable,
@@ -1981,7 +2026,7 @@ pub trait ICoreWebView2WebResourceResponse: IUnknown {
     /// Set the StatusCode property.
     unsafe fn put_status_code(&self, /* in */ status_code: i32) -> HRESULT;
 
-    /// The HTTP response reason phrase
+    /// The HTTP response reason phrase.
     unsafe fn get_reason_phrase(
         &self,
         /* out, retval */ reason_phrase: *mut LPWSTR,
@@ -1992,7 +2037,7 @@ pub trait ICoreWebView2WebResourceResponse: IUnknown {
 }
 
 /// Event args for the NavigationStarting event.
-#[com_interface("EE1938CE-D385-4CB0-854B-F498F78C3D88")]
+#[com_interface("5b495469-e119-438a-9b18-7604f25f2e49")]
 pub trait ICoreWebView2NavigationStartingEventArgs: IUnknown {
     /// The uri of the requested navigation.
     unsafe fn get_uri(&self, /* out, retval */ uri: *mut LPWSTR) -> HRESULT;
@@ -2020,6 +2065,8 @@ pub trait ICoreWebView2NavigationStartingEventArgs: IUnknown {
     /// page's content will be intact. For performance reasons, GET HTTP requests
     /// may happen, while the host is responding. This means cookies can be set
     /// and used part of a request for the navigation.
+    /// Cancellation for navigation to about:blank or frame navigation to srcdoc
+    /// is not supported. Such attempts will be ignored.
     unsafe fn get_cancel(&self, /* out, retval */ cancel: *mut BOOL) -> HRESULT;
 
     /// Set the Cancel property.
@@ -2034,7 +2081,7 @@ pub trait ICoreWebView2NavigationStartingEventArgs: IUnknown {
 
 /// The caller implements this interface to receive the NavigationStarting
 /// event.
-#[com_interface("073337A4-64D2-4C7E-AC9F-987F0F613497")]
+#[com_interface("9adbe429-f36d-432b-9ddc-f8881fbd76e3")]
 pub trait ICoreWebView2NavigationStartingEventHandler: IUnknown {
     /// Called to provide the implementer with the event args for the
     /// corresponding event.
@@ -2046,7 +2093,7 @@ pub trait ICoreWebView2NavigationStartingEventHandler: IUnknown {
 }
 
 /// Event args for the ContentLoading event.
-#[com_interface("2A800835-2179-45D6-A745-6657E9A546B9")]
+#[com_interface("0c8a1275-9b6b-4901-87ad-70df25bafa6e")]
 pub trait ICoreWebView2ContentLoadingEventArgs: IUnknown {
     /// True if the loaded content is an error page.
     unsafe fn get_is_error_page(&self, /* out, retval */ is_error_page: *mut BOOL) -> HRESULT;
@@ -2059,7 +2106,7 @@ pub trait ICoreWebView2ContentLoadingEventArgs: IUnknown {
 }
 
 /// The caller implements this interface to receive the ContentLoading event.
-#[com_interface("7AF5CC82-AE19-4964-BD71-B9BC5F03E85D")]
+#[com_interface("364471e7-f2be-4910-bdba-d72077d51c4b")]
 pub trait ICoreWebView2ContentLoadingEventHandler: IUnknown {
     /// Called to provide the implementer with the event args for the
     /// corresponding event.
@@ -2071,7 +2118,7 @@ pub trait ICoreWebView2ContentLoadingEventHandler: IUnknown {
 }
 
 /// Event args for the SourceChanged event.
-#[com_interface("BD9A4BFB-BE19-40BD-968B-EBCF0D727EF3")]
+#[com_interface("31e0e545-1dba-4266-8914-f63848a1f7d7")]
 pub trait ICoreWebView2SourceChangedEventArgs: IUnknown {
     /// True if the page being navigated to is a new document.
     unsafe fn get_is_new_document(
@@ -2081,7 +2128,7 @@ pub trait ICoreWebView2SourceChangedEventArgs: IUnknown {
 }
 
 /// The caller implements this interface to receive the SourceChanged event.
-#[com_interface("8FEDD1A7-3A33-416F-AF81-881EEB001433")]
+#[com_interface("3c067f9f-5388-4772-8b48-79f7ef1ab37c")]
 pub trait ICoreWebView2SourceChangedEventHandler: IUnknown {
     /// Called to provide the implementer with the event args for the
     /// corresponding event.
@@ -2093,7 +2140,7 @@ pub trait ICoreWebView2SourceChangedEventHandler: IUnknown {
 }
 
 /// The caller implements this interface to receive the HistoryChanged event.
-#[com_interface("54C9B7D7-D9E9-4158-861F-F97E1C3C6631")]
+#[com_interface("c79a420c-efd9-4058-9295-3e8b4bcab645")]
 pub trait ICoreWebView2HistoryChangedEventHandler: IUnknown {
     /// There are no event args and the args parameter will be null.
     unsafe fn invoke(
@@ -2104,7 +2151,7 @@ pub trait ICoreWebView2HistoryChangedEventHandler: IUnknown {
 }
 
 /// Event args for the ScriptDialogOpening event.
-#[com_interface("B8F6356E-24DC-4D74-90FE-AD071E11CB91")]
+#[com_interface("7390bb70-abe0-4843-9529-f143b31b03d6")]
 pub trait ICoreWebView2ScriptDialogOpeningEventArgs: IUnknown {
     /// The URI of the page that requested the dialog box.
     unsafe fn get_uri(&self, /* out, retval */ uri: *mut LPWSTR) -> HRESULT;
@@ -2146,7 +2193,7 @@ pub trait ICoreWebView2ScriptDialogOpeningEventArgs: IUnknown {
 
 /// The caller implements this interface to receive the ScriptDialogOpening
 /// event.
-#[com_interface("72D93789-2727-4A9B-A4FC-1B2609CBCBE3")]
+#[com_interface("ef381bf9-afa8-4e37-91c4-8ac48524bdfb")]
 pub trait ICoreWebView2ScriptDialogOpeningEventHandler: IUnknown {
     /// Called to provide the implementer with the event args for the
     /// corresponding event.
@@ -2158,12 +2205,12 @@ pub trait ICoreWebView2ScriptDialogOpeningEventHandler: IUnknown {
 }
 
 /// Event args for the NavigationCompleted event.
-#[com_interface("361F5621-EA7F-4C55-95EC-3C5E6992EA4A")]
+#[com_interface("30d68b7d-20d9-4752-a9ca-ec8448fbb5c1")]
 pub trait ICoreWebView2NavigationCompletedEventArgs: IUnknown {
     /// True when the navigation is successful. This
     /// is false for a navigation that ended up in an error page (failures due to
     /// no network, DNS lookup failure, HTTP server responds with 4xx), but could
-    /// also be false for additional things such as window.stop() called on
+    /// also be false for additional scenarios such as window.stop() called on
     /// navigated page.
     unsafe fn get_is_success(&self, /* out, retval */ is_success: *mut BOOL) -> HRESULT;
 
@@ -2182,7 +2229,7 @@ pub trait ICoreWebView2NavigationCompletedEventArgs: IUnknown {
 
 /// The caller implements this interface to receive the NavigationCompleted
 /// event.
-#[com_interface("9F921239-20C4-455F-9E3F-6047A50E248B")]
+#[com_interface("d33a35bf-1c49-4f98-93ab-006e0533fe1c")]
 pub trait ICoreWebView2NavigationCompletedEventHandler: IUnknown {
     /// Called to provide the implementer with the event args for the
     /// corresponding event.
@@ -2194,7 +2241,7 @@ pub trait ICoreWebView2NavigationCompletedEventHandler: IUnknown {
 }
 
 /// Event args for the PermissionRequested event.
-#[com_interface("774B5EA1-3FAD-435C-B1FC-A77D1ACD5EAF")]
+#[com_interface("973ae2ef-ff18-4894-8fb2-3c758f046810")]
 pub trait ICoreWebView2PermissionRequestedEventArgs: IUnknown {
     /// The origin of the web content that requests the permission.
     unsafe fn get_uri(&self, /* out, retval */ uri: *mut LPWSTR) -> HRESULT;
@@ -2231,7 +2278,7 @@ pub trait ICoreWebView2PermissionRequestedEventArgs: IUnknown {
 
 /// The caller implements this interface to receive the PermissionRequested
 /// event.
-#[com_interface("543B4ADE-9B0B-4748-9AB7-D76481B223AA")]
+#[com_interface("15e1c6a3-c72a-4df3-91d7-d097fbec6bfd")]
 pub trait ICoreWebView2PermissionRequestedEventHandler: IUnknown {
     /// Called to provide the implementer with the event args for the
     /// corresponding event.
@@ -2244,7 +2291,7 @@ pub trait ICoreWebView2PermissionRequestedEventHandler: IUnknown {
 
 /// The caller implements this interface to receive the result of the
 /// AddScriptToExecuteOnDocumentCreated method.
-#[com_interface("7082ABED-0591-428F-A722-60C2F814546B")]
+#[com_interface("b99369f3-9b11-47b5-bc6f-8e7895fcea17")]
 pub trait ICoreWebView2AddScriptToExecuteOnDocumentCreatedCompletedHandler: IUnknown {
     /// Called to provide the implementer with the completion status and result
     /// of the corresponding asynchronous method call.
@@ -2257,7 +2304,7 @@ pub trait ICoreWebView2AddScriptToExecuteOnDocumentCreatedCompletedHandler: IUnk
 
 /// The caller implements this interface to receive the result of the
 /// ExecuteScript method.
-#[com_interface("3B717C93-3ED5-4450-9B13-7F56AA367AC7")]
+#[com_interface("49511172-cc67-4bca-9923-137112f4c4cc")]
 pub trait ICoreWebView2ExecuteScriptCompletedHandler: IUnknown {
     /// Called to provide the implementer with the completion status and result
     /// of the corresponding asynchronous method call.
@@ -2269,7 +2316,7 @@ pub trait ICoreWebView2ExecuteScriptCompletedHandler: IUnknown {
 }
 
 /// Event args for the WebResourceRequested event.
-#[com_interface("2D7B3282-83B1-41CA-8BBF-FF18F6BFE320")]
+#[com_interface("453e667f-12c7-49d4-be6d-ddbe7956f57a")]
 pub trait ICoreWebView2WebResourceRequestedEventArgs: IUnknown {
     /// The Web resource request. The request object may be missing some headers
     /// that are added by network stack later on.
@@ -2285,7 +2332,7 @@ pub trait ICoreWebView2WebResourceRequestedEventArgs: IUnknown {
         /* out, retval */ response: *mut *mut *mut ICoreWebView2WebResourceResponseVTable,
     ) -> HRESULT;
 
-    /// Set the Response property. An empty Web resource respnose object can be
+    /// Set the Response property. An empty Web resource response object can be
     /// created with CreateWebResourceResponse and then modified to construct the response.
     unsafe fn put_response(
         &self,
@@ -2314,7 +2361,7 @@ pub trait ICoreWebView2WebResourceRequestedEventArgs: IUnknown {
 /// pattern to HTTP, in which case the request immediately completed.
 /// This may not contain any request headers that are added by the network
 /// stack, such as Authorization headers.
-#[com_interface("F6DC79F2-E1FA-4534-8968-4AFF10BBAA32")]
+#[com_interface("ab00b74c-15f1-4646-80e8-e76341d25d71")]
 pub trait ICoreWebView2WebResourceRequestedEventHandler: IUnknown {
     /// Called to provide the implementer with the event args for the
     /// corresponding event.
@@ -2328,7 +2375,7 @@ pub trait ICoreWebView2WebResourceRequestedEventHandler: IUnknown {
 /// The caller implements this method to receive the result of the
 /// CapturePreview method. The result is written to the stream provided in
 /// the CapturePreview method call.
-#[com_interface("DCED64F8-D9C7-4A3C-B9FD-FBBCA0B43496")]
+#[com_interface("697e05e9-3d8f-45fa-96f4-8ffe1ededaf5")]
 pub trait ICoreWebView2CapturePreviewCompletedHandler: IUnknown {
     /// Called to provide the implementer with the completion status
     /// of the corresponding asynchronous method call.
@@ -2337,7 +2384,7 @@ pub trait ICoreWebView2CapturePreviewCompletedHandler: IUnknown {
 
 /// The caller implements this method to receive the GotFocus and LostFocus
 /// events. There are no event args for this event.
-#[com_interface("76E67C71-663F-4C17-B71A-9381CCF3B94B")]
+#[com_interface("05ea24bd-6452-4926-9014-4b82b498135d")]
 pub trait ICoreWebView2FocusChangedEventHandler: IUnknown {
     /// Called to provide the implementer with the event args for the
     /// corresponding event. There are no event args and the args
@@ -2350,7 +2397,7 @@ pub trait ICoreWebView2FocusChangedEventHandler: IUnknown {
 }
 
 /// Event args for the MoveFocusRequested event.
-#[com_interface("71922903-B180-49D0-AED2-C9F9D10064B1")]
+#[com_interface("2d6aa13b-3839-4a15-92fc-d88b3c0d9c9d")]
 pub trait ICoreWebView2MoveFocusRequestedEventArgs: IUnknown {
     /// The reason for WebView to fire the MoveFocus Requested event.
     unsafe fn get_reason(&self, /* out, retval */ value: *mut MoveFocusReason) -> HRESULT;
@@ -2370,7 +2417,7 @@ pub trait ICoreWebView2MoveFocusRequestedEventArgs: IUnknown {
 }
 
 /// The caller implements this method to receive the MoveFocusRequested event.
-#[com_interface("4B21D6DD-3DE7-47B0-8019-7D3ACE6E3631")]
+#[com_interface("69035451-6dc7-4cb8-9bce-b2bd70ad289f")]
 pub trait ICoreWebView2MoveFocusRequestedEventHandler: IUnknown {
     /// Called to provide the implementer with the event args for the
     /// corresponding event.
@@ -2382,12 +2429,12 @@ pub trait ICoreWebView2MoveFocusRequestedEventHandler: IUnknown {
 }
 
 /// Event args for the WebMessageReceived event.
-#[com_interface("B263B5AE-9C54-4B75-B632-40AE1A0B6912")]
+#[com_interface("0f99a40c-e962-4207-9e92-e3d542eff849")]
 pub trait ICoreWebView2WebMessageReceivedEventArgs: IUnknown {
     /// The URI of the document that sent this web message.
     unsafe fn get_source(&self, /* out, retval */ source: *mut LPWSTR) -> HRESULT;
 
-    /// The message posted from the webview content to the host converted to a
+    /// The message posted from the WebView content to the host converted to a
     /// JSON string. Use this to communicate via JavaScript objects.
     ///
     /// For example the following postMessage calls result in the
@@ -2403,7 +2450,7 @@ pub trait ICoreWebView2WebMessageReceivedEventArgs: IUnknown {
         /* out, retval */ web_message_as_json: *mut LPWSTR,
     ) -> HRESULT;
 
-    /// If the message posted from the webview content to the host is a
+    /// If the message posted from the WebView content to the host is a
     /// string type, this method will return the value of that string. If the
     /// message posted is some other kind of JavaScript type this method will fail
     /// with E_INVALIDARG. Use this to communicate via simple strings.
@@ -2424,7 +2471,7 @@ pub trait ICoreWebView2WebMessageReceivedEventArgs: IUnknown {
 
 /// The caller implements this interface to receive the WebMessageReceived
 /// event.
-#[com_interface("199328C8-9964-4F5F-84E6-E875B1B763D6")]
+#[com_interface("57213f19-00e6-49fa-8e07-898ea01ecbd2")]
 pub trait ICoreWebView2WebMessageReceivedEventHandler: IUnknown {
     /// Called to provide the implementer with the event args for the
     /// corresponding event.
@@ -2436,7 +2483,7 @@ pub trait ICoreWebView2WebMessageReceivedEventHandler: IUnknown {
 }
 
 /// Event args for the DevToolsProtocolEventReceived event.
-#[com_interface("F661B1C2-5FF5-4700-B723-C439034539B4")]
+#[com_interface("653c2959-bb3a-4377-8632-b58ada4e66c4")]
 pub trait ICoreWebView2DevToolsProtocolEventReceivedEventArgs: IUnknown {
     /// The parameter object of the corresponding DevToolsProtocol event
     /// represented as a JSON string.
@@ -2448,7 +2495,7 @@ pub trait ICoreWebView2DevToolsProtocolEventReceivedEventArgs: IUnknown {
 
 /// The caller implements this interface to receive
 /// DevToolsProtocolEventReceived events from the WebView.
-#[com_interface("8E1DED79-A40B-4271-8BE6-57640C167F4A")]
+#[com_interface("e2fda4be-5456-406c-a261-3d452138362c")]
 pub trait ICoreWebView2DevToolsProtocolEventReceivedEventHandler: IUnknown {
     /// Called to provide the implementer with the event args for the
     /// corresponding event.
@@ -2461,7 +2508,7 @@ pub trait ICoreWebView2DevToolsProtocolEventReceivedEventHandler: IUnknown {
 
 /// The caller implements this interface to receive CallDevToolsProtocolMethod
 /// completion results.
-#[com_interface("C20CF895-BA7C-493B-AB2E-8A6E3A3602A2")]
+#[com_interface("5c4889f0-5ef6-4c5a-952c-d8f1b92d0574")]
 pub trait ICoreWebView2CallDevToolsProtocolMethodCompletedHandler: IUnknown {
     /// Called to provide the implementer with the completion status and result
     /// of the corresponding asynchronous method call.
@@ -2474,7 +2521,7 @@ pub trait ICoreWebView2CallDevToolsProtocolMethodCompletedHandler: IUnknown {
 
 /// The caller implements this interface to receive the CoreWebView2Controller created
 /// via CreateCoreWebView2Controller.
-#[com_interface("86EF6808-3C3F-4C6F-975E-8CE0B98F70BA")]
+#[com_interface("6c4819f3-c9b7-4260-8127-c9f5bde7f68c")]
 pub trait ICoreWebView2CreateCoreWebView2ControllerCompletedHandler: IUnknown {
     /// Called to provide the implementer with the completion status and result
     /// of the corresponding asynchronous method call.
@@ -2487,13 +2534,13 @@ pub trait ICoreWebView2CreateCoreWebView2ControllerCompletedHandler: IUnknown {
 
 /// Event args for the NewWindowRequested event. The event is fired when content
 /// inside webview requested to a open a new window (through window.open() and so on.)
-#[com_interface("9EDC7F5F-C6EA-4F3C-827B-A8880794C0A9")]
+#[com_interface("34acb11c-fc37-4418-9132-f9c21d1eafb9")]
 pub trait ICoreWebView2NewWindowRequestedEventArgs: IUnknown {
     /// The target uri of the NewWindowRequest.
     unsafe fn get_uri(&self, /* out, retval */ uri: *mut LPWSTR) -> HRESULT;
 
     /// Sets a WebView as a result of the NewWindowRequest. The target
-    /// webview should not be navigated. If the NewWindow is set, its top level
+    /// WebView should not be navigated. If the NewWindow is set, its top level
     /// window will return as the opened WindowProxy.
     unsafe fn put_new_window(
         &self,
@@ -2535,11 +2582,57 @@ pub trait ICoreWebView2NewWindowRequestedEventArgs: IUnknown {
         &self,
         /* out, retval */ deferral: *mut *mut *mut ICoreWebView2DeferralVTable,
     ) -> HRESULT;
+
+    /// Window features specified by the window.open call.
+    /// These features can be considered for positioning and sizing of
+    /// new webview windows.
+    unsafe fn get_window_features(
+        &self,
+        /* out, retval */ window_features: *mut *mut *mut ICoreWebView2WindowFeaturesVTable,
+    ) -> HRESULT;
+}
+
+/// Window features for a WebView popup window. These fields match the
+/// 'windowFeatures' passed to window.open as specified in
+/// https://developer.mozilla.org/en-US/docs/Web/API/Window/open#Window_features
+#[com_interface("5eaf559f-b46e-4397-8860-e422f287ff1e")]
+pub trait ICoreWebView2WindowFeatures: IUnknown {
+    /// Has specified left and top values.
+    unsafe fn has_position(&self, /* out, retval */ has_position: *mut BOOL) -> HRESULT;
+
+    /// Has specified height and width values.
+    unsafe fn has_size(&self, /* out, retval */ has_size: *mut BOOL) -> HRESULT;
+
+    /// The left position of the window. Will fail if HasPosition is false.
+    unsafe fn get_left(&self, /* out, retval */ left: *mut UINT32) -> HRESULT;
+
+    /// The top position of the window. Will fail if HasPosition is false.
+    unsafe fn get_top(&self, /* out, retval */ top: *mut UINT32) -> HRESULT;
+
+    /// The height of the window. Minimum value is 100. Will fail if HasSize
+    /// is false.
+    unsafe fn get_height(&self, /* out, retval */ height: *mut UINT32) -> HRESULT;
+
+    /// The width of the window. Minimum value is 100. Will fail if HasSize is
+    /// false.
+    unsafe fn get_width(&self, /* out, retval */ width: *mut UINT32) -> HRESULT;
+
+    /// Whether or not to display the menu bar
+    unsafe fn get_menu_bar(&self, /* out, retval */ menu_bar: *mut BOOL) -> HRESULT;
+
+    /// Whether or not to add a status bar
+    unsafe fn get_status(&self, /* out, retval */ status: *mut BOOL) -> HRESULT;
+
+    /// Whether or not to display the browser toolbar
+    unsafe fn get_toolbar(&self, /* out, retval */ toolbar: *mut BOOL) -> HRESULT;
+
+    /// Whether or not to display scroll bars
+    unsafe fn get_scroll_bars(&self, /* out, retval */ scroll_bars: *mut BOOL) -> HRESULT;
 }
 
 /// The caller implements this interface to receive NewWindowRequested
 /// events.
-#[com_interface("ACAA30EF-A40C-47BD-9CB9-D9C2AADC9FCB")]
+#[com_interface("d4c185fe-c81c-4989-97af-2d3fa7ab5651")]
 pub trait ICoreWebView2NewWindowRequestedEventHandler: IUnknown {
     /// Called to provide the implementer with the event args for the
     /// corresponding event.
@@ -2553,7 +2646,7 @@ pub trait ICoreWebView2NewWindowRequestedEventHandler: IUnknown {
 /// The caller implements this interface to receive DocumentTitleChanged
 /// events. Use the DocumentTitle property to get the modified
 /// title.
-#[com_interface("6423D6B1-5A57-46C5-BA46-DBB3735EE7C9")]
+#[com_interface("f5f2b923-953e-4042-9f95-f3a118e1afd4")]
 pub trait ICoreWebView2DocumentTitleChangedEventHandler: IUnknown {
     /// Called to provide the implementer with the event args for the
     /// corresponding event. There are no event args and the args
@@ -2566,7 +2659,7 @@ pub trait ICoreWebView2DocumentTitleChangedEventHandler: IUnknown {
 }
 
 /// Event args for the AcceleratorKeyPressed event.
-#[com_interface("9224476E-D8C3-4EB7-BB65-2FD7792B27CE")]
+#[com_interface("9f760f8a-fb79-42be-9990-7b56900fa9c7")]
 pub trait ICoreWebView2AcceleratorKeyPressedEventArgs: IUnknown {
     /// The key event type that caused the event to be fired.
     unsafe fn get_key_event_kind(
@@ -2605,7 +2698,7 @@ pub trait ICoreWebView2AcceleratorKeyPressedEventArgs: IUnknown {
 
 /// The caller implements this interface to receive the AcceleratorKeyPressed
 /// event.
-#[com_interface("A7D303F9-503C-4B7E-BC40-5C7CE6CABAAA")]
+#[com_interface("b29c7e28-fa79-41a8-8e44-65811c76dcb2")]
 pub trait ICoreWebView2AcceleratorKeyPressedEventHandler: IUnknown {
     /// Called to provide the implementer with the event args for the
     /// corresponding event.
@@ -2617,7 +2710,7 @@ pub trait ICoreWebView2AcceleratorKeyPressedEventHandler: IUnknown {
 }
 
 /// The caller implements this interface to receive NewBrowserVersionAvailable events.
-#[com_interface("E82E8242-EE39-4A57-A065-E13256D60342")]
+#[com_interface("f9a2976e-d34e-44fc-adee-81b6b57ca914")]
 pub trait ICoreWebView2NewBrowserVersionAvailableEventHandler: IUnknown {
     /// Called to provide the implementer with the event args for the
     /// corresponding event.
@@ -2631,7 +2724,7 @@ pub trait ICoreWebView2NewBrowserVersionAvailableEventHandler: IUnknown {
 /// The caller implements this method to receive the
 /// ContainsFullScreenElementChanged events. There are no event args for this
 /// event.
-#[com_interface("120888E3-4CAD-4EC2-B627-B2016D05612D")]
+#[com_interface("e45d98b1-afef-45be-8baf-6c7728867f73")]
 pub trait ICoreWebView2ContainsFullScreenElementChangedEventHandler: IUnknown {
     /// Called to provide the implementer with the event args for the
     /// corresponding event. There are no event args and the args
@@ -2645,7 +2738,7 @@ pub trait ICoreWebView2ContainsFullScreenElementChangedEventHandler: IUnknown {
 
 /// The caller implements this interface to receive NewWindowRequested
 /// events.
-#[com_interface("63C89928-AD32-4421-A0E4-EC99B34AA97E")]
+#[com_interface("5c19e9e0-092f-486b-affa-ca8231913039")]
 pub trait ICoreWebView2WindowCloseRequestedEventHandler: IUnknown {
     /// Called to provide the implementer with the event args for the
     /// corresponding event. There are no event args and the args
@@ -2658,10 +2751,10 @@ pub trait ICoreWebView2WindowCloseRequestedEventHandler: IUnknown {
 }
 
 /// This represents the WebView2 Environment. WebViews created from an
-/// environment run on the Browser process specified with environment parameters
+/// environment run on the browser process specified with environment parameters
 /// and objects created from an environment should be used in the same environment.
 /// Using it in different environments are not guaranteed to be compatible and may fail.
-#[com_interface("DA66D884-6DA8-410E-9630-8C48F8B3A40E")]
+#[com_interface("b96d755e-0319-4e92-a296-23436f46a1fc")]
 pub trait ICoreWebView2Environment: IUnknown {
     /// Asynchronously create a new WebView.
     ///
@@ -2678,7 +2771,7 @@ pub trait ICoreWebView2Environment: IUnknown {
     ///
     /// It is recommended that the application handles restart manager messages
     /// so that it can be restarted gracefully in the case when the app is using
-    /// Edge for webview from a certain installation and that installation is being
+    /// Edge for WebView from a certain installation and that installation is being
     /// uninstalled. For example, if a user installs Edge from Dev channel and
     /// opts to use Edge from that channel for testing the app, and then uninstalls
     /// Edge from that channel without closing the app, the app will be restarted
@@ -2730,8 +2823,9 @@ pub trait ICoreWebView2Environment: IUnknown {
         /* out, retval */ version_info: *mut LPWSTR,
     ) -> HRESULT;
 
-    /// The NewBrowserVersionAvailable event fires when a newer version of the
-    /// Edge browser is installed and available to use via WebView2.
+    /// Add an event handler for the NewBrowserVersionAvailable event.
+    /// NewBrowserVersionAvailable fires when a newer version of the
+    /// Edge browser is installed and available for use via WebView2.
     /// To use the newer version of the browser you must create a new
     /// environment and WebView.
     /// This event will only be fired for new version from the same Edge channel
@@ -2766,7 +2860,7 @@ pub trait ICoreWebView2Environment: IUnknown {
 ///
 /// \snippet AppWindow.cpp CreateCoreWebView2EnvironmentWithOptions
 ///
-#[com_interface("97E9FBD9-646A-4B75-8682-149B71DACE59")]
+#[com_interface("2fde08a8-1e9a-4766-8c05-95a9ceb9d1c5")]
 pub trait ICoreWebView2EnvironmentOptions: IUnknown {
     /// AdditionalBrowserArguments can be specified to change the behavior of the
     /// WebView. These will be passed to the browser process as part of
@@ -2825,13 +2919,32 @@ pub trait ICoreWebView2EnvironmentOptions: IUnknown {
         /* out, retval */ value: *mut LPWSTR,
     ) -> HRESULT;
 
-    /// Set the TargetCompatibleBrowserVersion.
+    /// Set the TargetCompatibleBrowserVersion property.
     unsafe fn put_target_compatible_browser_version(&self, /* in */ value: LPCWSTR) -> HRESULT;
+
+    /// The AllowSingleSignOnUsingOSPrimaryAccount property is used to enable
+    /// single sign on with Azure Active Directory (AAD) resources inside WebView
+    /// using the logged in Windows account and single sign on with web sites using
+    /// Microsoft account associated with the login in Windows account.
+    /// Default is disabled.
+    /// Universal Windows Platform apps must also declare enterpriseCloudSSO
+    /// [restricted capability](https://docs.microsoft.com/windows/uwp/packaging/app-capability-declarations#restricted-capabilities)
+    /// for the single sign on to work.
+    unsafe fn get_allow_single_sign_on_using_osprimary_account(
+        &self,
+        /* out, retval */ allow: *mut BOOL,
+    ) -> HRESULT;
+
+    /// Set the AllowSingleSignOnUsingOSPrimaryAccount property.
+    unsafe fn put_allow_single_sign_on_using_osprimary_account(
+        &self,
+        /* in */ allow: BOOL,
+    ) -> HRESULT;
 }
 
 /// The caller implements this interface to receive the WebView2Environment created
 /// via CreateCoreWebView2Environment.
-#[com_interface("8B4F98CE-DB0D-4E71-85FD-C4C4EF1F2630")]
+#[com_interface("4e8a3389-c9d8-4bd2-b6b5-124fee6cc14d")]
 pub trait ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler: IUnknown {
     /// Called to provide the implementer with the completion status and result
     /// of the corresponding asynchronous method call.
@@ -2845,7 +2958,7 @@ pub trait ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler: IUnknown {
 /// A Receiver is created for a particular DevTools Protocol event and allows
 /// you to subscribe and unsubscribe from that event.
 /// Obtained from the WebView object via GetDevToolsProtocolEventReceiver.
-#[com_interface("FE59C48C-540C-4A3C-8898-8E1602E0055D")]
+#[com_interface("b32ca51a-8371-45e9-9317-af021d080367")]
 pub trait ICoreWebView2DevToolsProtocolEventReceiver: IUnknown {
     /// Subscribe to a DevToolsProtocol event.
     /// The handler's Invoke method will be called whenever the corresponding

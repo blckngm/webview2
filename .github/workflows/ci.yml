@@ -27,10 +27,6 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: test
-      - uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --no-default-features
 
   test-minimal-versions:
     name: Test (Minimal versions)
@@ -54,7 +50,7 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: test
-          args: -Z minimal-versions --no-default-features
+          args: -Z minimal-versions
 
   # Check with cargo feature features=dev_dep to avoid issues like #7.
   check-features-dev_dep:
@@ -123,8 +119,8 @@ jobs:
           toolchain: 1.46.0
           override: true
       - run: rustup component add rustfmt
-      - run: cargo run < ../../Microsoft.Web.WebView2.0.9.579/WebView2.idl > ../src/lib.rs && rustfmt ../src/lib.rs
+      - run: cargo run < ../../Microsoft.Web.WebView2.0.9.622.11/WebView2.idl > ../src/lib.rs && rustfmt ../src/lib.rs
         working-directory: webview2-sys/idl2rs
-      - run: cargo run -- interface_wrappers < ../../Microsoft.Web.WebView2.0.9.579/WebView2.idl > ../../src/interfaces.rs && rustfmt ../../src/interfaces.rs
+      - run: cargo run -- interface_wrappers < ../../Microsoft.Web.WebView2.0.9.622.11/WebView2.idl > ../../src/interfaces.rs && rustfmt ../../src/interfaces.rs
         working-directory: webview2-sys/idl2rs
       - run: git diff --exit-code

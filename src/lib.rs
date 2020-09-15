@@ -1,20 +1,7 @@
 //! Rust bindings for
 //! [WebView2](https://docs.microsoft.com/en-us/microsoft-edge/hosting/webview2).
 //!
-//! The Edge browser from beta, dev or canary channels (>= 86.0.579.0) or the
-//! [Evergreen WebView2
-//! Runtime](https://docs.microsoft.com/en-us/microsoft-edge/webview2/concepts/distribution#understand-the-webview2-runtime-and-installer-preview)
-//! need to be installed for this to actually work. Or the
-//! [`build`](struct.EnvironmentBuilder.html#method.build) method will return an
-//! error.
-//!
-//! By default, this crate ships a copy of the `WebView2Loader.dll` file for the
-//! target platform. At runtime, this dll will be loaded from memory with the
-//! [memory-module-sys](https://crates.io/crates/memory-module-sys) library.
-//! License of the DLL file (part of the WebView2 SDK) is included in the
-//! `Microsoft.Web.WebView2.0.9.579` folder. You can also [use an external
-//! `WebView2Loader.dll`
-//! file](struct.EnvironmentBuilder.html#method.with_dll_file_path).
+//! # API
 //!
 //! There are high level, idiomatic Rust wrappers for most APIs. And there are
 //! bindings to almost all the raw COM APIs in the `webview2-sys` crate. You can
@@ -24,17 +11,32 @@
 //!
 //! There are some examples in the examples directory.
 //!
-//! Minimum supported rust version (MSRV): 1.43.0
+//! # Runtime Requirement
+//!
+//! The Edge browser from beta, dev or canary channels (>= 86.0.622.0) or the
+//! [Evergreen WebView2
+//! Runtime](https://docs.microsoft.com/en-us/microsoft-edge/webview2/concepts/distribution#understand-the-webview2-runtime-and-installer-preview)
+//! need to be installed for this to actually work. Or the
+//! [`build`](struct.EnvironmentBuilder.html#method.build) method will return an
+//! error.
+//!
+//! # Build Environment Requirement and Quirks
+//!
+//! Minimum supported rust version (MSRV) is 1.43.0.
+//!
+//! When using the MSVC toolchain the `WebView2LoaderStatic.lib` is statically
+//! linked. Since the lib seem to be built with visual studio 2019, you need to
+//! use a linker from visual studio 2019.
+//!
+//! When using the GNU toolchain the `WebView2Loader.dll` file need to be loaded
+//! at runtime.
+
 #![cfg(windows)]
 // Caused by the `com_interface` macro.
 #![allow(clippy::cmp_null)]
 #![allow(clippy::type_complexity)]
 
 use com::{interfaces::IUnknown, ComInterface, ComPtr, ComRc};
-#[cfg(feature = "memory-load-library")]
-use memory_module_sys::{MemoryGetProcAddress, MemoryLoadLibrary};
-#[cfg(feature = "memory-load-library")]
-use once_cell::sync::Lazy;
 use std::cell::{Cell, RefCell};
 use std::fmt;
 use std::io;
@@ -51,33 +53,8 @@ use winapi::shared::winerror::{
     SEVERITY_ERROR, SUCCEEDED, S_OK,
 };
 use winapi::um::combaseapi::{CoTaskMemAlloc, CoTaskMemFree};
-use winapi::um::libloaderapi::{GetProcAddress, LoadLibraryW};
 
-#[cfg(all(feature = "memory-load-library", target_arch = "x86_64"))]
-static WEBVIEW2_LOADER_DLL_CONTENT: &[u8] =
-    include_bytes!("../Microsoft.Web.WebView2.0.9.579/build/x64/WebView2Loader.dll");
-#[cfg(all(feature = "memory-load-library", target_arch = "x86"))]
-static WEBVIEW2_LOADER_DLL_CONTENT: &[u8] =
-    include_bytes!("../Microsoft.Web.WebView2.0.9.579/build/x86/WebView2Loader.dll");
-#[cfg(all(feature = "memory-load-library", target_arch = "aarch64"))]
-static WEBVIEW2_LOADER_DLL_CONTENT: &[u8] =
-    include_bytes!("../Microsoft.Web.WebView2.0.9.579/build/arm64/WebView2Loader.dll");
-
-#[cfg(feature = "memory-load-library")]
-static WEBVIEW2_LOADER_LIBRARY: Lazy<std::result::Result<usize, i32>> = Lazy::new(|| unsafe {
-    let library = MemoryLoadLibrary(
-        WEBVIEW2_LOADER_DLL_CONTENT.as_ptr() as *const _,
-        WEBVIEW2_LOADER_DLL_CONTENT.len(),
-    ) as usize;
-    if library == 0 {
-        // io::Error is not copy or clone, so we use the raw os error.
-        Err(io::Error::last_os_error().raw_os_error().unwrap())
-    } else {
-        Ok(library)
-    }
-});
-
-static DEFAULT_TARGET_COMPATIBLE_BROWSER_VERSION: &str = "86.0.579";
+static DEFAULT_TARGET_COMPATIBLE_BROWSER_VERSION: &str = "86.0.622";
 
 /// Returns a pointer that implements the COM callback interface with the specified closure.
 /// Inspired by C++ Microsoft::WRT::Callback.
@@ -146,6 +123,7 @@ mod environment_options {
         additional_browser_arguments: RefCell<Option<WideCString>>,
         language: RefCell<Option<WideCString>>,
         target_compatible_browser_version: RefCell<Option<WideCString>>,
+        allow_single_sign_on_using_osprimary_account: Cell<bool>,
     }
 
     impl EnvironmentOptionsImpl {
@@ -174,10 +152,15 @@ mod environment_options {
                 .target_compatible_browser_version
                 .unwrap_or(DEFAULT_TARGET_COMPATIBLE_BROWSER_VERSION);
             let version = Some(WideCString::from_str(version)?);
+
+            let allow_single_sign_on_using_osprimary_account =
+                builder.allow_single_sign_on_using_osprimary_account;
+
             let instance = Self::allocate(
                 additional_browser_arguments.into(),
                 language.into(),
                 version.into(),
+                allow_single_sign_on_using_osprimary_account.into(),
             );
             unsafe {
                 instance.add_ref();
@@ -249,6 +232,21 @@ mod environment_options {
                 Some(WideCString::from_ptr_str(value));
             S_OK
         }
+
+        unsafe fn get_allow_single_sign_on_using_osprimary_account(&self, value: *mut i32) -> i32 {
+            value.write(if self.allow_single_sign_on_using_osprimary_account.get() {
+                1
+            } else {
+                0
+            });
+            S_OK
+        }
+
+        unsafe fn put_allow_single_sign_on_using_osprimary_account(&self, value: i32) -> i32 {
+            self.allow_single_sign_on_using_osprimary_account
+                .set(value != 0);
+            S_OK
+        }
     }
 }
 
@@ -256,12 +254,12 @@ mod environment_options {
 /// function.
 #[derive(Default)]
 pub struct EnvironmentBuilder<'a> {
-    dll_file_path: Option<&'a Path>,
     browser_executable_folder: Option<&'a Path>,
     user_data_folder: Option<&'a Path>,
     additional_browser_arguments: Option<&'a str>,
     language: Option<&'a str>,
     target_compatible_browser_version: Option<&'a str>,
+    allow_single_sign_on_using_osprimary_account: bool,
 }
 
 impl<'a> EnvironmentBuilder<'a> {
@@ -306,47 +304,10 @@ impl<'a> EnvironmentBuilder<'a> {
         self
     }
 
-    /// Set path to the `WebView2Loader.dll` file.
-    ///
-    /// We will use `LoadLibraryW` to load this DLL file instead of using the
-    /// embedded DLL file.
-    ///
-    /// When the `memory-load-library` feature is not enabled, this method must
-    /// have been called before calling `build`.
     #[inline]
-    pub fn with_dll_file_path(self, dll_file_path: &'a Path) -> Self {
-        Self {
-            dll_file_path: Some(dll_file_path),
-            ..self
-        }
-    }
-
-    #[inline]
-    fn get_proc(&self, name: &[u8]) -> Result<FARPROC> {
-        if let Some(dll_file_path) = self.dll_file_path {
-            let dll_file_path = WideCString::from_os_str(dll_file_path)?;
-            let dll = unsafe { LoadLibraryW(dll_file_path.as_ptr()) };
-            if dll.is_null() {
-                return Err(io::Error::last_os_error().into());
-            }
-            let proc = unsafe { GetProcAddress(dll, name.as_ptr() as _) };
-            if proc.is_null() {
-                return Err(io::Error::last_os_error().into());
-            }
-            Ok(proc)
-        } else {
-            #[cfg(feature = "memory-load-library")]
-            {
-                let library = (*WEBVIEW2_LOADER_LIBRARY).map_err(io::Error::from_raw_os_error)?;
-                let proc = unsafe { MemoryGetProcAddress(library as _, name.as_ptr() as _) };
-                if proc.is_null() {
-                    return Err(io::Error::last_os_error().into());
-                }
-                Ok(proc)
-            }
-            #[cfg(not(feature = "memory-load-library"))]
-            panic!("webview2: DLL file path is not specified")
-        }
+    pub fn with_allow_single_sign_on_using_osprimary_account(mut self, allow: bool) -> Self {
+        self.allow_single_sign_on_using_osprimary_account = allow;
+        self
     }
 
     #[inline]
@@ -356,14 +317,11 @@ impl<'a> EnvironmentBuilder<'a> {
         } else {
             None
         };
-        let get_fn: FnGetAvailableCoreWebView2BrowserVersionString = unsafe {
-            mem::transmute(self.get_proc(b"GetAvailableCoreWebView2BrowserVersionString\0")?)
-        };
 
         let mut result = MaybeUninit::<LPWSTR>::uninit();
 
         check_hresult(unsafe {
-            get_fn(
+            GetAvailableCoreWebView2BrowserVersionString(
                 browser_executable_folder
                     .as_ref()
                     .map_or(ptr::null(), |x| x.as_ptr()),
@@ -388,28 +346,19 @@ impl<'a> EnvironmentBuilder<'a> {
         let version2 = WideCString::from_str(version2)?;
         let mut result = MaybeUninit::<i32>::uninit();
 
-        let compare_fn: FnCompareBrowserVersions =
-            unsafe { mem::transmute(self.get_proc(b"CompareBrowserVersions\0")?) };
-
         check_hresult(unsafe {
-            compare_fn(version1.as_ptr(), version2.as_ptr(), result.as_mut_ptr())
+            CompareBrowserVersions(version1.as_ptr(), version2.as_ptr(), result.as_mut_ptr())
         })?;
         let result = unsafe { result.assume_init() };
 
         Ok(result.cmp(&0))
     }
 
-    // Inline so that dead code elimination can eliminate the DLL file content
-    // and the memory-module-sys functions when they are not used.
     #[inline]
     pub fn build(
         &self,
         completed: impl FnOnce(Result<Environment>) -> Result<()> + 'static,
     ) -> Result<()> {
-        let create_fn: FnCreateCoreWebView2EnvironmentWithOptions = unsafe {
-            mem::transmute(self.get_proc(b"CreateCoreWebView2EnvironmentWithOptions\0")?)
-        };
-
         let browser_executable_folder = if let Some(p) = self.browser_executable_folder {
             Some(WideCString::from_os_str(p)?)
         } else {
@@ -440,7 +389,7 @@ impl<'a> EnvironmentBuilder<'a> {
         );
 
         check_hresult(unsafe {
-            create_fn(
+            CreateCoreWebView2EnvironmentWithOptions(
                 browser_executable_folder
                     .as_ref()
                     .map(|p| p.as_ptr())

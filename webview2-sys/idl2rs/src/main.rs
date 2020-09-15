@@ -730,7 +730,14 @@ pub trait IStream: ISequentialStream {
 /// use the browserExecutableFolder, userDataFolder and additionalBrowserArguments
 /// registry values as replacements for the corresponding values in
 /// CreateCoreWebView2EnvironmentWithOptions parameters.
-pub type FnCreateCoreWebView2EnvironmentWithOptions = unsafe extern "stdcall" fn(browserExecutableFolder: PCWSTR, userDataFolder: PCWSTR, environment_options: *mut *mut ICoreWebView2EnvironmentOptionsVTable, environment_created_handler: *mut *mut ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandlerVTable) -> HRESULT;
+extern "stdcall" {
+    pub fn CreateCoreWebView2EnvironmentWithOptions(
+        browserExecutableFolder: PCWSTR,
+        userDataFolder: PCWSTR,
+        environment_options: *mut *mut ICoreWebView2EnvironmentOptionsVTable,
+        environment_created_handler: *mut *mut ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandlerVTable
+    ) -> HRESULT;
+}
 
 /// Get the browser version info including channel name if it is not the stable channel
 /// or the Embedded Edge.
@@ -739,10 +746,12 @@ pub type FnCreateCoreWebView2EnvironmentWithOptions = unsafe extern "stdcall" fn
 /// the override will be used.
 /// If there isn't an override, then the parameter passed to
 /// GetAvailableCoreWebView2BrowserVersionString is used.
-pub type FnGetAvailableCoreWebView2BrowserVersionString = unsafe extern "stdcall" fn(
-    browser_executable_folder: PCWSTR,
-    version_info: *mut LPWSTR,
-) -> HRESULT;
+extern "stdcall" {
+    pub fn GetAvailableCoreWebView2BrowserVersionString(
+        browser_executable_folder: PCWSTR,
+        version_info: *mut LPWSTR,
+    ) -> HRESULT;
+}
 
 /// This method is for anyone want to compare version correctly to determine
 /// which version is newer, older or same. It can be used to determine whether
@@ -753,11 +762,13 @@ pub type FnGetAvailableCoreWebView2BrowserVersionString = unsafe extern "stdcall
 /// input parameter is null.
 /// Input can directly use the versionInfo obtained from
 /// GetAvailableCoreWebView2BrowserVersionString, channel info will be ignored.
-pub type FnCompareBrowserVersions = unsafe extern "stdcall" fn(
-    version1: PCWSTR,
-    version2: PCWSTR,
-    result: *mut i32,
-) -> HRESULT;
+extern "stdcall" {
+    pub fn CompareBrowserVersions(
+        version1: PCWSTR,
+        version2: PCWSTR,
+        result: *mut i32,
+    ) -> HRESULT;
+}
 "#
     );
     doc.render(&mut io::stdout()).unwrap();
