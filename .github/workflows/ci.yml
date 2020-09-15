@@ -24,6 +24,11 @@ jobs:
           profile: minimal
           toolchain: ${{ matrix.version }}-${{ matrix.arch }}-pc-windows-${{ matrix.env }}
           override: true
+      # Copy the DLL if using gnu toolchain.
+      - run: |
+          mkdir -p target/debug/deps &&
+          cp Microsoft.Web.WebView2.*/build/native/${{ fromJson('{ "x86_64": "x64", "i686": "x86" }')[matrix.arch] }}/WebView2Loader.dll target/debug/deps
+        if: ${{ matrix.env == 'gnu' }}
       - uses: actions-rs/cargo@v1
         with:
           command: test
@@ -43,10 +48,11 @@ jobs:
           profile: minimal
           toolchain: ${{ matrix.toolchain }}
           override: true
-      - uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: -Z minimal-versions
+      # Copy the DLL if using gnu toolchain.
+      - run: |
+          mkdir -p target/debug/deps &&
+          cp Microsoft.Web.WebView2.*/build/native/x86/WebView2Loader.dll target/debug/deps
+        if: ${{ endsWith(matrix.toolchain, 'gnu') }}
       - uses: actions-rs/cargo@v1
         with:
           command: test
@@ -119,8 +125,8 @@ jobs:
           toolchain: 1.46.0
           override: true
       - run: rustup component add rustfmt
-      - run: cargo run < ../../Microsoft.Web.WebView2.0.9.622.11/WebView2.idl > ../src/lib.rs && rustfmt ../src/lib.rs
+      - run: cargo run < ../../Microsoft.Web.WebView2.*/WebView2.idl > ../src/lib.rs && rustfmt ../src/lib.rs
         working-directory: webview2-sys/idl2rs
-      - run: cargo run -- interface_wrappers < ../../Microsoft.Web.WebView2.0.9.622.11/WebView2.idl > ../../src/interfaces.rs && rustfmt ../../src/interfaces.rs
+      - run: cargo run -- interface_wrappers < ../../Microsoft.Web.WebView2.*/WebView2.idl > ../../src/interfaces.rs && rustfmt ../../src/interfaces.rs
         working-directory: webview2-sys/idl2rs
       - run: git diff --exit-code

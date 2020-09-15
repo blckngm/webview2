@@ -1484,7 +1484,6 @@ mod tests {
         assert_eq!(buf, b"hello, world");
     }
 
-    #[cfg(feature = "memory-load-library")]
     #[test]
     fn test_cmp_version() {
         let b = EnvironmentBuilder::new();
