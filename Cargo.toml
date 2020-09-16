@@ -10,17 +10,13 @@ repository = "https://github.com/sopium/webview2"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [workspace]
-members = [".", "webview2-sys"]
 
 [dependencies]
 winapi = { version = "0.3.8", features = [
     "combaseapi",
-    "libloaderapi",
     # For SHCreateMemStream.
     "shellapi",
     "winerror",
-    # WebView2LoaderStatic.lib needs to link to some functions from version..lib.
-    "winver"
 ] }
 widestring = "0.4.0"
 com = "0.2.0"

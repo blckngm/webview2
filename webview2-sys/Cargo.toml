@@ -12,6 +12,9 @@ repository = "https://github.com/sopium/webview2"
 [dependencies]
 winapi = { version = "0.3.8", features = [
     "combaseapi",
+    # WebView2LoaderStatic.lib needs to link to functions from these:
+    "winver",
+    "shellapi",
 ] }
 com = "0.2.0"
 
