@@ -1,6 +1,6 @@
 [package]
 name = "webview2"
-version = "0.1.0-alpha.9"
+version = "0.1.0-beta.1"
 authors = ["Yin Guanhao <sopium@mysterious.site>"]
 edition = "2018"
 license = "MIT"
@@ -21,7 +21,7 @@ winapi = { version = "0.3.8", features = [
 widestring = "0.4.0"
 com = "0.2.0"
 once_cell = "1.3.1"
-webview2-sys = { path = "./webview2-sys", version = "0.1.0-alpha.8" }
+webview2-sys = { path = "./webview2-sys", version = "0.1.0-beta.1" }
 
 [dev-dependencies]
 winit = "0.20.0"
