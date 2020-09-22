@@ -25,6 +25,7 @@ webview2-sys = { path = "./webview2-sys", version = "0.1.0-beta.1" }
 
 [dev-dependencies]
 winit = "0.20.0"
+native-windows-gui = { version = "1.0.4", features = ["high-dpi"] }
 
 [package.metadata.docs.rs]
 default-target = "x86_64-pc-windows-msvc"
