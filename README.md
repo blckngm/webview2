@@ -50,5 +50,4 @@ This brings some complexities:
 
 # Examples
 
-See the `examples` directory, especially the heavily commented
-`host-web-communication` example.
+See the `examples` directory, especially the heavily commented `win32` example.

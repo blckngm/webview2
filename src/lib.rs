@@ -51,8 +51,7 @@ This brings some complexities:
 
 # Examples
 
-See the `examples` directory, especially the heavily commented
-`host-web-communication` example.
+See the `examples` directory, especially the heavily commented `win32` example.
 "###]
 #![cfg(windows)]
 // Caused by the `com_interface` macro.
@@ -1421,7 +1420,7 @@ pub use webview2_sys::{
 /// WebView2 Error.
 ///
 /// Actually it's just an `HRESULT`.
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Eq, PartialEq)]
 pub struct Error {
     hresult: HRESULT,
 }
@@ -1429,6 +1428,12 @@ pub struct Error {
 pub type Result<T> = std::result::Result<T, Error>;
 
 impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "webview2 error, HRESULT {:#X}", self.hresult as u32)
+    }
+}
+
+impl fmt::Debug for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "webview2 error, HRESULT {:#X}", self.hresult as u32)
     }
