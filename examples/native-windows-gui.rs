@@ -33,7 +33,7 @@ fn main() {
     let controller: Rc<OnceCell<Controller>> = Rc::new(OnceCell::new());
     let controller_clone = controller.clone();
 
-    let result = webview2::EnvironmentBuilder::new().build(move |env| {
+    let result = webview2::Environment::builder().build(move |env| {
         env.unwrap()
             .create_controller(window_handle.hwnd().unwrap(), move |c| {
                 let c = c.unwrap();

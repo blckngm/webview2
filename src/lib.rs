@@ -272,8 +272,50 @@ mod environment_options {
     }
 }
 
-/// A builder for calling the `CreateCoreWebView2EnvironmentWithDetails`
+pub fn get_available_browser_version_string(
+    browser_executable_folder: Option<&Path>,
+) -> Result<String> {
+    let browser_executable_folder = if let Some(p) = browser_executable_folder {
+        Some(WideCString::from_os_str(p)?)
+    } else {
+        None
+    };
+
+    let mut result = MaybeUninit::<LPWSTR>::uninit();
+
+    check_hresult(unsafe {
+        GetAvailableCoreWebView2BrowserVersionString(
+            browser_executable_folder
+                .as_ref()
+                .map_or(ptr::null(), |x| x.as_ptr()),
+            result.as_mut_ptr(),
+        )
+    })?;
+    let result = unsafe { result.assume_init() };
+    let result1 = unsafe { WideCStr::from_ptr_str(result) }
+        .to_string()
+        .map_err(|_| Error::new(E_FAIL));
+    unsafe { CoTaskMemFree(result as _) };
+    result1
+}
+
+pub fn compare_browser_versions(version1: &str, version2: &str) -> Result<std::cmp::Ordering> {
+    let version1 = WideCString::from_str(version1)?;
+    let version2 = WideCString::from_str(version2)?;
+    let mut result = MaybeUninit::<i32>::uninit();
+
+    check_hresult(unsafe {
+        CompareBrowserVersions(version1.as_ptr(), version2.as_ptr(), result.as_mut_ptr())
+    })?;
+    let result = unsafe { result.assume_init() };
+
+    Ok(result.cmp(&0))
+}
+
+/// A builder for calling the `CreateCoreWebView2EnvironmentWithOptions`
 /// function.
+///
+/// Use [Environment::builder()](./struct.Environment.html#method.builder) to create one.
 #[derive(Default)]
 pub struct EnvironmentBuilder<'a> {
     browser_executable_folder: Option<&'a Path>,
@@ -285,6 +327,8 @@ pub struct EnvironmentBuilder<'a> {
 }
 
 impl<'a> EnvironmentBuilder<'a> {
+    // Hidden. Prefer `Environment::builder()`.
+    #[doc(hidden)]
     #[inline]
     pub fn new() -> Self {
         Self::default()
@@ -332,48 +376,21 @@ impl<'a> EnvironmentBuilder<'a> {
         self
     }
 
+    /// Get available browser version string (within the
+    /// browser_executable_folder if it is specified.)
     #[inline]
     pub fn get_available_browser_version_string(&self) -> Result<String> {
-        let browser_executable_folder = if let Some(p) = self.browser_executable_folder {
-            Some(WideCString::from_os_str(p)?)
-        } else {
-            None
-        };
-
-        let mut result = MaybeUninit::<LPWSTR>::uninit();
-
-        check_hresult(unsafe {
-            GetAvailableCoreWebView2BrowserVersionString(
-                browser_executable_folder
-                    .as_ref()
-                    .map_or(ptr::null(), |x| x.as_ptr()),
-                result.as_mut_ptr(),
-            )
-        })?;
-        let result = unsafe { result.assume_init() };
-        let result1 = unsafe { WideCStr::from_ptr_str(result) }
-            .to_string()
-            .map_err(|_| Error::new(E_FAIL));
-        unsafe { CoTaskMemFree(result as _) };
-        result1
+        get_available_browser_version_string(self.browser_executable_folder)
     }
 
+    #[deprecated = "use webview2::compare_browser_versions instead"]
     #[inline]
     pub fn compare_browser_versions(
         &self,
         version1: &str,
         version2: &str,
     ) -> Result<std::cmp::Ordering> {
-        let version1 = WideCString::from_str(version1)?;
-        let version2 = WideCString::from_str(version2)?;
-        let mut result = MaybeUninit::<i32>::uninit();
-
-        check_hresult(unsafe {
-            CompareBrowserVersions(version1.as_ptr(), version2.as_ptr(), result.as_mut_ptr())
-        })?;
-        let result = unsafe { result.assume_init() };
-
-        Ok(result.cmp(&0))
+        compare_browser_versions(version1, version2)
     }
 
     #[inline]
@@ -614,6 +631,10 @@ macro_rules! remove_event_handler {
 }
 
 impl Environment {
+    pub fn builder<'a>() -> EnvironmentBuilder<'a> {
+        EnvironmentBuilder::new()
+    }
+
     pub fn create_controller(
         &self,
         parent_window: HWND,
@@ -1514,20 +1535,16 @@ mod tests {
 
     #[test]
     fn test_cmp_version() {
-        let b = EnvironmentBuilder::new();
         assert_eq!(
-            b.compare_browser_versions("84.0.498.0 canary", "84.0.498.0 canary")
-                .unwrap(),
+            compare_browser_versions("84.0.498.0 canary", "84.0.498.0 canary").unwrap(),
             std::cmp::Ordering::Equal,
         );
         assert_eq!(
-            b.compare_browser_versions("84.0.430.0 canary", "84.0.498.0 canary")
-                .unwrap(),
+            compare_browser_versions("84.0.430.0 canary", "84.0.498.0 canary").unwrap(),
             std::cmp::Ordering::Less,
         );
         assert_eq!(
-            b.compare_browser_versions("84.0.498.0", "84.0.440.0")
-                .unwrap(),
+            compare_browser_versions("84.0.498.0", "84.0.440.0").unwrap(),
             std::cmp::Ordering::Greater,
         );
     }

@@ -26,7 +26,7 @@ fn main() {
         let controller_clone = controller.clone();
         let hwnd = window.hwnd() as HWND;
 
-        webview2::EnvironmentBuilder::new().build(move |env| {
+        webview2::Environment::builder().build(move |env| {
             env.expect("env")
                 .create_controller(hwnd, move |controller| {
                     let controller = controller.expect("create host");

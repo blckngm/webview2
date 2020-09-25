@@ -132,7 +132,7 @@ fn main() {
     }
 
     // Create the webview.
-    let r = webview2::EnvironmentBuilder::new().build(move |env| {
+    let r = webview2::Environment::builder().build(move |env| {
         env.unwrap().create_controller(hwnd, move |c| {
             let c = c.unwrap();
 
