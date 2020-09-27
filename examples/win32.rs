@@ -152,16 +152,11 @@ fn main() {
     ><input id="message-input" type="text"
     ><button type="submit">Send</button>
 </form>
-<button>Capture Preview</button>
 <script>
 const inputElement = document.getElementById('message-input');
 document.getElementsByTagName('form')[0].addEventListener('submit', e => {
     // Send message to host.
     window.chrome.webview.postMessage(inputElement.value);
-});
-document.getElementsByTagName('button')[1].addEventListener('click', () => {
-    // Send message to capture preview.
-    window.chrome.webview.postMessage('capture-preview');
 });
 // Receive from host.
 window.chrome.webview.addEventListener('message', event => alert('Received message: ' + event.data));
@@ -170,28 +165,8 @@ window.chrome.webview.addEventListener('message', event => alert('Received messa
             // Receive message from webpage.
             w.add_web_message_received(|w, msg| {
                 let msg = msg.try_get_web_message_as_string()?;
-                if msg == "capture-preview" {
-                    let mut stream = webview2::Stream::from_bytes(&[]);
-                    let w1 = w.clone();
-                    w.capture_preview(webview2::CapturePreviewImageFormat::PNG, stream.clone(), move |r| {
-                        r?;
-                        use std::io::{self, Seek};
-                        stream.seek(io::SeekFrom::Start(0)).unwrap();
-                        let mut p = std::env::current_dir().unwrap();
-                        p.push("preview.png");
-                        let mut preview_png = std::fs::OpenOptions::new()
-                            .create(true)
-                            .write(true)
-                            .truncate(true)
-                            .open(&p)
-                            .unwrap();
-                        io::copy(&mut stream, &mut preview_png).unwrap();
-                        w1.post_web_message_as_string(&format!("captured preview: {}", p.display()))
-                    })
-                } else {
-                    // Send it back.
-                    w.post_web_message_as_string(&msg)
-                }
+                // Send it back.
+                w.post_web_message_as_string(&msg)
             }).unwrap();
             controller_clone.set(c).unwrap();
             Ok(())
