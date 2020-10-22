@@ -8,7 +8,7 @@ fn main() {
 
     let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
     let mut manifest_dir = PathBuf::from(manifest_dir);
-    manifest_dir.push("Microsoft.Web.WebView2.0.9.622.11");
+    manifest_dir.push("Microsoft.Web.WebView2.1.0.622.22");
     manifest_dir.push("build");
     manifest_dir.push("native");
     let arch = match std::env::var("CARGO_CFG_TARGET_ARCH").unwrap().as_str() {

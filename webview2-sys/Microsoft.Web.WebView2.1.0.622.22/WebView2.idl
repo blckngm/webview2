@@ -175,8 +175,8 @@ import "objidl.idl";
 import "oaidl.idl";
 import "EventToken.idl";
 
-// [uuid(26d34152-879f-4065-bea2-3daa2cfadfb8), version(1.0)]
-// library WebView2 {
+[uuid(26d34152-879f-4065-bea2-3daa2cfadfb8), version(1.0)]
+library WebView2 {
 
 // Interface forward declarations
 interface ICoreWebView2AcceleratorKeyPressedEventArgs;
@@ -2742,4 +2742,4 @@ cpp_quote("STDAPI GetAvailableCoreWebView2BrowserVersionString(PCWSTR browserExe
 /// GetAvailableCoreWebView2BrowserVersionString, channel info will be ignored.
 cpp_quote("STDAPI CompareBrowserVersions(PCWSTR version1, PCWSTR version2, int* result);")
 
-// }
+}

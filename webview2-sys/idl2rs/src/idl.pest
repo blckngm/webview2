@@ -52,9 +52,13 @@ import = { "import" ~ "\"" ~ (!"\"" ~ ANY)+ ~ "\"" ~ ";" }
 interface_forward_decleration = { "interface" ~ identifier ~ ";" }
 cpp_quote = { doc_comment? ~ "cpp_quote" ~ "(" ~ "\"" ~ (!"\"" ~ ANY)+ ~ "\"" ~ ")" }
 
-document = { SOI ~ import* ~ interface_forward_decleration* ~ (
+library = _{ interface_attributes ~ "library" ~ identifier ~ "{" ~
+    interface_forward_decleration* ~ (
     interface |
     typedef_enum |
     typedef_struct |
     cpp_quote
-)* ~ EOI }
+    )* ~
+"}" }
+
+document = { SOI ~ import* ~ library ~ EOI }
