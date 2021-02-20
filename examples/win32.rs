@@ -211,7 +211,7 @@ window.chrome.webview.addEventListener('message', event => alert('Received messa
 
     // Message loop. (Standard windows GUI boilerplate).
     let mut msg: MSG = unsafe { mem::zeroed() };
-    while (unsafe { GetMessageW(&mut msg, ptr::null_mut(), 0, 0) } > 0) {
+    while unsafe { GetMessageW(&mut msg, ptr::null_mut(), 0, 0) } > 0 {
         unsafe {
             TranslateMessage(&msg);
             DispatchMessageW(&msg);
