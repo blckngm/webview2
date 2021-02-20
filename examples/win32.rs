@@ -12,6 +12,33 @@ use winapi::{
 };
 
 fn main() {
+    if webview2::get_available_browser_version_string(None).is_err() {
+        use std::io::Write;
+        use std::os::windows::process::CommandExt;
+
+        // Run a powershell script to install the WebView2 runtime.
+        //
+        // Use powershell instead of a rust http library like ureq because using
+        // the latter makes the executable file a lot bigger (~500KiB).
+        let mut p = std::process::Command::new("powershell.exe")
+            .arg("-Command")
+            .arg("-")
+            // Let powershell open its own console window.
+            .creation_flags(/*CREATE_NEW_CONSOLE*/ 0x00000010)
+            .stdin(std::process::Stdio::piped())
+            .spawn()
+            .unwrap();
+        let mut stdin = p.stdin.take().unwrap();
+        stdin
+            .write_all(include_bytes!("download-and-run-bootstrapper.ps1"))
+            .unwrap();
+        drop(stdin);
+        let r = p.wait().unwrap();
+        if !r.success() {
+            return;
+        }
+    }
+
     let width = 600;
     let height = 400;
 
