@@ -1,0 +1,340 @@
+// Copyright (C) Microsoft Corporation. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+// These are the WebView2 experimental APIs published publicly as a part of the
+// WebView2 prerelease package. Modifications to any published interface require
+// a breaking change for the experimental APIs. Otherwise, do not modify
+// published interfaces.
+
+// midl is run from a tools directory with no special include paths setup.
+// To import an IDL from the build you must get out of the tools path
+// first.
+// We include the shipping webview2.idl so that our preview APIs may
+// interact with our public APIs.
+import "../../edge_embedded_browser/client/win/current/webview2.idl";
+
+[uuid(07abc5eb-fae4-4485-bf29-083ac335408b), version(1.0)]
+library WebView2Experimental {
+
+// Forward declarations
+interface ICoreWebView2ExperimentalCompositionControllerInterop;
+interface ICoreWebView2ExperimentalCompositionController3;
+interface ICoreWebView2ExperimentalCompositionController4;
+interface ICoreWebView2ExperimentalController;
+interface ICoreWebView2ExperimentalEnvironment2;
+interface ICoreWebView2ExperimentalEnvironmentInterop;
+interface ICoreWebView2ExperimentalRasterizationScaleChangedEventHandler;
+
+// Enums and structs
+
+/// Mode for how the Bounds property is interpreted in relation to the RasterizationScale property.
+[v1_enum]
+typedef enum COREWEBVIEW2_BOUNDS_MODE {
+  /// Bounds property represents raw pixels. Physical size of Webview is not impacted by RasterizationScale.
+  COREWEBVIEW2_BOUNDS_MODE_USE_RAW_PIXELS,
+  /// Bounds property represents logicl pixels and the RasterizationScale property is used to get the physical size of the WebView.
+  COREWEBVIEW2_BOUNDS_MODE_USE_RASTERIZATION_SCALE,
+} COREWEBVIEW2_BOUNDS_MODE;
+
+/// Matrix that represents a 3D transform. This transform is used to
+/// calculate correct coordinates when calling
+/// CreateCoreWebView2PointerInfoFromPointerId. This is equivalent to a
+/// D2D1_MATRIX_4X4_F
+typedef struct COREWEBVIEW2_MATRIX_4X4 {
+  /// The value in the first row and first column of the matrix.
+  FLOAT _11;
+  /// The value in the first row and second column of the matrix.
+  FLOAT _12;
+  /// The value in the first row and third column of the matrix.
+  FLOAT _13;
+  /// The value in the first row and fourth column of the matrix.
+  FLOAT _14;
+  /// The value in the second row and first column of the matrix.
+  FLOAT _21;
+  /// The value in the second row and second column of the matrix.
+  FLOAT _22;
+  /// The value in the second row and third column of the matrix.
+  FLOAT _23;
+  /// The value in the second row and fourth column of the matrix.
+  FLOAT _24;
+  /// The value in the third row and first column of the matrix.
+  FLOAT _31;
+  /// The value in the third row and second column of the matrix.
+  FLOAT _32;
+  /// The value in the third row and third column of the matrix.
+  FLOAT _33;
+  /// The value in the third row and fourth column of the matrix.
+  FLOAT _34;
+  /// The value in the fourth row and first column of the matrix.
+  FLOAT _41;
+  /// The value in the fourth row and second column of the matrix.
+  FLOAT _42;
+  /// The value in the fourth row and third column of the matrix.
+  FLOAT _43;
+  /// The value in the fourth row and fourth column of the matrix.
+  FLOAT _44;
+} COREWEBVIEW2_MATRIX_4X4;
+
+// End of enums and structs
+
+/// The ICoreWebView2Controller Experimental interface to manage rasterization scale.
+[uuid(3413543f-7a0e-4b56-98c1-7af3a37416ca), object, pointer_default(unique)]
+interface ICoreWebView2ExperimentalController : IUnknown {
+  /// The rasterization scale for the WebView. The rasterization scale is the
+  /// combination of the monitor DPI scale and text scaling set by the user.
+  /// This value should be updated when the DPI scale of the app's top level
+  /// window changes (i.e. monitor DPI scale changes or window changes monitor)
+  /// or when the text scale factor of the system changes.
+  ///
+  /// \snippet AppWindow.cpp DPIChanged
+  ///
+  /// \snippet AppWindow.cpp TextScaleChanged1
+  ///
+  /// \snippet AppWindow.cpp TextScaleChanged2
+  ///
+  /// Rasterization scale applies to the WebView content, as well as
+  /// popups, context menus, scroll bars, etc. Normal app scaling scenarios
+  /// should use the ZoomFactor property or SetBoundsAndZoomFactor API.
+  ///
+  /// \snippet ViewComponent.cpp RasterizationScale
+  [propget] HRESULT RasterizationScale([out, retval] double* scale);
+  /// Set the rasterization scale property.
+  [propput] HRESULT RasterizationScale([in] double scale);
+
+  /// ShouldDetectMonitorScaleChanges property determines whether the WebView
+  /// attempts to track monitor DPI scale changes. When true, the WebView will
+  /// track monitor DPI scale changes, update the RasterizationScale property,
+  /// and raises RasterizationScaleChanged event. When false, the WebView will
+  /// not track monitor DPI scale changes, and the app must update the
+  /// RasterizationScale property itself. RasterizationScaleChanged event will
+  /// never raise when ShouldDetectMonitorScaleChanges is false.
+  [propget] HRESULT ShouldDetectMonitorScaleChanges([out, retval] BOOL* value);
+  /// Set the ShouldDetectMonitorScaleChanges property.
+  [propput] HRESULT ShouldDetectMonitorScaleChanges([in] BOOL value);
+
+  /// Add an event handler for the RasterizationScaleChanged event.
+  /// The event is raised when the WebView detects that the monitor DPI scale
+  /// has changed, ShouldDetectMonitorScaleChanges is true, and the WebView has
+  /// changed the RasterizationScale property.
+  ///
+  /// \snippet ViewComponent.cpp RasterizationScaleChanged
+  HRESULT add_RasterizationScaleChanged(
+    [in] ICoreWebView2ExperimentalRasterizationScaleChangedEventHandler*
+        eventHandler,
+    [out] EventRegistrationToken* token);
+  /// Remove an event handler previously added with
+  /// add_RasterizationScaleChanged.
+  HRESULT remove_RasterizationScaleChanged(
+    [in] EventRegistrationToken token);
+
+  /// BoundsMode affects how setting the Bounds and RasterizationScale
+  /// properties work. Bounds mode can either be in COREWEBVIEW2_BOUNDS_MODE_USE_RAW_PIXELS
+  /// mode or COREWEBVIEW2_BOUNDS_MODE_USE_RASTERIZATION_SCALE mode.
+  ///
+  /// When the mode is in COREWEBVIEW2_BOUNDS_MODE_USE_RAW_PIXELS, setting the bounds
+  /// property will set the size of the WebView in raw screen pixels. Changing
+  /// the rasterization scale in this mode won't change the raw pixel size of
+  /// the WebView and will only change the rasterization scale.
+  ///
+  /// When the mode is in COREWEBVIEW2_BOUNDS_MODE_USE_RASTERIZATION_SCALE, setting the
+  /// bounds property will change the logical size of the WebView which can be
+  /// described by the following equation:
+  /// ```text
+  /// Logical size * rasterization scale = Raw Pixel size
+  /// ```
+  /// In this case, changing the rasterization scale will keep the logical size
+  /// the same and change the raw pixel size.
+  ///
+  /// \snippet ViewComponent.cpp BoundsMode
+  [propget] HRESULT BoundsMode([out, retval] COREWEBVIEW2_BOUNDS_MODE* boundsMode);
+  /// Set the BoundsMode property.
+  [propput] HRESULT BoundsMode([in] COREWEBVIEW2_BOUNDS_MODE boundsMode);
+}
+
+/// This interface is an extension of the ICoreWebView2Environment. An object
+/// implementing the ICoreWebView2ExperimentalEnvironment2 interface will also
+/// implement ICoreWebView2Environment.
+[uuid(37b54fd4-1ad9-4c1f-bd14-9daba9fdeb26), object, pointer_default(unique)]
+interface ICoreWebView2ExperimentalEnvironment2 : IUnknown {
+  /// Returns the UI Automation Provider for the
+  /// ICoreWebView2CompositionController that corresponds with the given HWND.
+  HRESULT GetProviderForHwnd([in] HWND hwnd,
+                             [out, retval] IUnknown** provider);
+}
+
+/// This interface is an extension of the ICoreWebView2CompositionController.
+/// An object implementing ICoreWebView2ExperimentalCompositionController4
+/// interface will also implement ICoreWebView2CompositionController.
+[uuid(e6041d7f-18ac-4654-a04e-8b3f81251c33), object, pointer_default(unique)]
+interface ICoreWebView2ExperimentalCompositionController4 : IUnknown {
+  /// Returns the UI Automation Provider for the WebView.
+  [propget] HRESULT UIAProvider([out, retval] IUnknown** provider);
+
+  /// A helper function to convert a pointerId received from the system into
+  /// an ICoreWebView2ExperimentalPointerInfo.
+  /// parentWindow is the HWND that contains the WebView. This can be any HWND
+  /// in the hwnd tree that contains the WebView.
+  /// The COREWEBVIEW2_MATRIX_4X4 is the transform from that HWND to the WebView.
+  /// The returned ICoreWebView2ExperimentalPointerInfo is used in SendPointerInfo.
+  /// The pointer type must be either pen or touch or the function will fail.
+  HRESULT CreateCoreWebView2PointerInfoFromPointerId(
+    [in] UINT pointerId,
+    [in] HWND parentWindow,
+    [in] struct COREWEBVIEW2_MATRIX_4X4 transform,
+    [out, retval] ICoreWebView2PointerInfo** pointerInfo);
+}
+
+/// This interface is continuation of the
+/// ICoreWebView2CompositionController interface to manage drag and
+/// drop.
+[uuid(b134916b-a104-4d2a-9567-c2fd53714350), object, pointer_default(unique)]
+interface ICoreWebView2ExperimentalCompositionController3 : IUnknown {
+  /// This function corresponds to \[IDropTarget::DragEnter\]\[WindowsWin32ApiOleidlNfOleidlIdroptargetDragenter\].
+  ///
+  /// The hosting application must register as an IDropTarget and implement
+  /// and forward DragEnter calls to this function.
+  ///
+  /// In addition, the hosting application needs to create an IDropTargetHelper
+  /// and call the corresponding \[IDropTargetHelper::DragEnter\]\[WindowsWin32ApiShobjidlCoreNfShobjidlCoreIdroptargethelperDragenter\] function on that
+  /// object before forwarding the call to WebView.
+  ///
+  /// point parameter must be modified to include the WebView's offset and be in
+  /// the WebView's client coordinates (Similar to how SendMouseInput works).
+  ///
+  /// \[WindowsWin32ApiOleidlNfOleidlIdroptargetDragenter\]: /windows/win32/api/oleidl/nf-oleidl-idroptarget-dragenter "IDropTarget::DragEnter (oleidl.h) - Win32 apps | Microsoft Docs"
+  ///
+  /// \[WindowsWin32ApiShobjidlCoreNfShobjidlCoreIdroptargethelperDragenter\]: /windows/win32/api/shobjidl_core/nf-shobjidl_core-idroptargethelper-dragenter "IDropTargetHelper::DragEnter (shobjidl_core.h) - Win32 apps | Microsoft Docs"
+  ///
+  /// \snippet DropTarget.cpp DragEnter
+  HRESULT DragEnter(
+      [in] IDataObject* dataObject,
+      [in] DWORD keyState,
+      [in] POINT point,
+      [out, retval] DWORD* effect);
+
+  /// This function corresponds to \[IDropTarget::DragLeave\]\[WindowsWin32ApiOleidlNfOleidlIdroptargetDragleave\].
+  ///
+  /// The hosting application must register as an IDropTarget and implement
+  /// and forward DragLeave calls to this function.
+  ///
+  /// In addition, the hosting application needs to create an IDropTargetHelper
+  /// and call the corresponding \[IDropTargetHelper::DragLeave\]\[WindowsWin32ApiShobjidlCoreNfShobjidlCoreIdroptargethelperDragleave\] function on that
+  /// object before forwarding the call to WebView.
+  ///
+  /// \[WindowsWin32ApiOleidlNfOleidlIdroptargetDragleave\]: /windows/win32/api/oleidl/nf-oleidl-idroptarget-dragleave "IDropTarget::DragLeave (oleidl.h) - Win32 apps | Microsoft Docs"
+  ///
+  /// \[WindowsWin32ApiShobjidlCoreNfShobjidlCoreIdroptargethelperDragleave\]: /windows/win32/api/shobjidl_core/nf-shobjidl_core-idroptargethelper-dragleave "IDropTargetHelper::DragLeave (shobjidl_core.h) - Win32 apps | Microsoft Docs"
+  ///
+  /// \snippet DropTarget.cpp DragLeave
+  HRESULT DragLeave();
+
+  /// This function corresponds to \[IDropTarget::DragOver\]\[WindowsWin32ApiOleidlNfOleidlIdroptargetDragover\].
+  ///
+  /// The hosting application must register as an IDropTarget and implement
+  /// and forward DragOver calls to this function.
+  ///
+  /// In addition, the hosting application needs to create an IDropTargetHelper
+  /// and call the corresponding \[IDropTargetHelper::DragOver\]\[WindowsWin32ApiShobjidlCoreNfShobjidlCoreIdroptargethelperDragover\] function on that
+  /// object before forwarding the call to WebView.
+  ///
+  /// point parameter must be modified to include the WebView's offset and be in
+  /// the WebView's client coordinates (Similar to how SendMouseInput works).
+  ///
+  /// \[WindowsWin32ApiOleidlNfOleidlIdroptargetDragover\]: /windows/win32/api/oleidl/nf-oleidl-idroptarget-dragover "IDropTarget::DragOver (oleidl.h) - Win32 apps | Microsoft Docs"
+  ///
+  /// \[WindowsWin32ApiShobjidlCoreNfShobjidlCoreIdroptargethelperDragover\]: /windows/win32/api/shobjidl_core/nf-shobjidl_core-idroptargethelper-dragover "IDropTargetHelper::DragOver (shobjidl_core.h) - Win32 apps | Microsoft Docs"
+  ///
+  /// \snippet DropTarget.cpp DragOver
+  HRESULT DragOver(
+      [in] DWORD keyState,
+      [in] POINT point,
+      [out, retval] DWORD* effect);
+
+  /// This function corresponds to \[IDropTarget::Drop\]\[WindowsWin32ApiOleidlNfOleidlIdroptargetDrop\].
+  ///
+  /// The hosting application must register as an IDropTarget and implement
+  /// and forward Drop calls to this function.
+  ///
+  /// In addition, the hosting application needs to create an IDropTargetHelper
+  /// and call the corresponding \[IDropTargetHelper::Drop\]\[WindowsWin32ApiShobjidlCoreNfShobjidlCoreIdroptargethelperDrop\] function on that
+  /// object before forwarding the call to WebView.
+  ///
+  /// point parameter must be modified to include the WebView's offset and be in
+  /// the WebView's client coordinates (Similar to how SendMouseInput works).
+  ///
+  /// \[WindowsWin32ApiOleidlNfOleidlIdroptargetDrop\]: /windows/win32/api/oleidl/nf-oleidl-idroptarget-drop "IDropTarget::Drop (oleidl.h) - Win32 apps | Microsoft Docs"
+  ///
+  /// \[WindowsWin32ApiShobjidlCoreNfShobjidlCoreIdroptargethelperDrop\]: /windows/win32/api/shobjidl_core/nf-shobjidl_core-idroptargethelper-drop "IDropTargetHelper::Drop (shobjidl_core.h) - Win32 apps | Microsoft Docs"
+  ///
+  /// \snippet DropTarget.cpp Drop
+  HRESULT Drop(
+      [in] IDataObject* dataObject,
+      [in] DWORD keyState,
+      [in] POINT point,
+      [out, retval] DWORD* effect);
+}
+
+/// The caller implements this interface to receive RasterizationScaleChanged
+/// events. Use the ICoreWebView2ExperimentalController.RasterizationScale
+/// property to get the modified rasterization scale.
+[uuid(51560be0-0ad4-4157-90cf-e6dad638d8aa), object, pointer_default(unique)]
+interface ICoreWebView2ExperimentalRasterizationScaleChangedEventHandler : IUnknown {
+  /// Called to provide the implementer with the event args for the
+  /// corresponding event. There are no event args and the args
+  /// parameter will be null.
+  HRESULT Invoke(
+    [in] ICoreWebView2ExperimentalController* sender,
+    [in] IUnknown* args);
+}
+
+// Interop interface for the CoreWebView2Environment WinRT object to
+// allow WinRT end developers to be able to use their COM interfaces as
+// parameters to some of the properties.
+[uuid(79455D4F-D28D-4C3F-A713-13CA393BD2E4), object, pointer_default(unique)]
+interface ICoreWebView2ExperimentalEnvironmentInterop : IUnknown {
+  /// Returns the UI Automation Provider for the
+  /// ICoreWebView2CompositionController that corresponds with the given HWND.
+  HRESULT GetProviderForHwnd([in] HWND hwnd,
+                             [out, retval] IUnknown** provider);
+}
+
+// Interop interface for the CoreWebView2CompositionController WinRT object to
+// allow WinRT end developers to be able to use their COM interfaces as
+// parameters to some of the properties.
+[uuid(4B60F2C9-88BB-42F4-9C4F-3C0D0ED17072), object, pointer_default(unique)]
+interface ICoreWebView2ExperimentalCompositionControllerInterop : IUnknown {
+  /// Returns the UI Automation Provider for the WebView.
+  [propget] HRESULT UIAProvider([out, retval] IUnknown** provider);
+
+  /// The RootVisualTarget is a visual in the hosting app's visual tree. This
+  /// visual is where the WebView will connect its visual tree. The app uses
+  /// this visual to position the WebView within the app. The app still needs
+  /// to use the Bounds property to size the WebView. The RootVisualTarget
+  /// property can be an IDCompositionVisual or a
+  /// Windows::UI::Composition::ContainerVisual. WebView will connect its visual
+  /// tree to the provided visual before returning from the property setter. The
+  /// app needs to commit on its device setting the RootVisualTarget property.
+  /// The RootVisualTarget property supports being set to nullptr to disconnect
+  /// the WebView from the app's visual tree.
+  /// \snippet ViewComponent.cpp SetRootVisualTarget
+  /// \snippet ViewComponent.cpp BuildDCompTree
+  [propget] HRESULT RootVisualTarget([out, retval] IUnknown** target);
+  /// Set the RootVisualTarget property.
+  [propput] HRESULT RootVisualTarget([in] IUnknown* target);
+}
+
+/// The ICoreWebView2Settings Experimental interface to manage the User Agent.
+[uuid(684cbeef-47ba-4d4a-99f4-976113f9f10a), object, pointer_default(unique)]
+interface ICoreWebView2ExperimentalSettings : IUnknown {
+  /// `UserAgent`.  Returns the User Agent. The default value is the default User Agent
+  /// of the Edge browser.
+  /// \snippet SettingsComponent.cpp UserAgent
+  [propget] HRESULT UserAgent([ out, retval ] LPWSTR* userAgent);
+  /// Sets the `UserAgent` property. This property may be overriden if
+  /// the User-Agent header is set in a request. If the parameter is empty
+  /// the User Agent will not be updated and the current User Agent will remain.
+  [propput] HRESULT UserAgent([in] LPCWSTR userAgent);
+}
+
+}

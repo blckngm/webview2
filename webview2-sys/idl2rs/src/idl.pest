@@ -7,6 +7,7 @@ doc_comment = @{ ("///" ~ (!NEWLINE ~ ANY)* ~ NEWLINE ~ (" " | "\t")*)+ }
 
 alpha = { 'a'..'z' | 'A'..'Z' }
 digit = { '0'..'9' }
+hex_digit = { 'a'..'f' | 'A'..'F' | '0'..'9' }
 
 identifier = @{ !digit ~ (alpha | digit | "_")+ }
 
@@ -27,7 +28,8 @@ method_name = { identifier }
 method = { doc_comment? ~ method_attribute? ~ _type ~ method_name ~ "(" ~ parameters ~ ")" ~ ";" }
 
 // Enum.
-variant = { doc_comment? ~ identifier }
+enum_value = { "0x" ~ hex_digit+ }
+variant = { doc_comment? ~ identifier ~ ( "=" ~ enum_value )? }
 variants = _{ (variant ~ ("," ~ variant)* ~ ","?)? }
 typedef_enum = { doc_comment? ~ "[v1_enum]" ~ "typedef" ~ "enum" ~ identifier ~ "{" ~ variants ~ "}" ~ identifier ~ ";"  }
 

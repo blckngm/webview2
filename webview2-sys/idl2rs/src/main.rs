@@ -32,6 +32,8 @@ impl<'a> Type<'a> {
                         "i32".into()
                     } else if p.as_str().eq_ignore_ascii_case("double") {
                         "f64".into()
+                    } else if p.as_str().eq_ignore_ascii_case("int32") {
+                        "i32".into()
                     } else if p.as_str().starts_with("I") {
                         result.modifiers.push(Modifier::Pointer);
                         format!("{}VTable", p.as_str()).into()
@@ -131,7 +133,12 @@ impl<'a> Method<'a> {
         } else {
             ""
         };
-        write!(w, "    unsafe fn {}{}(&self", name_prefix, camel_to_snake(self.name))?;
+        write!(
+            w,
+            "    unsafe fn {}{}(&self",
+            name_prefix,
+            camel_to_snake(self.name)
+        )?;
         for p in &self.parameters {
             write!(w, ", ")?;
             p.render(w)?;
@@ -153,6 +160,7 @@ struct TypedefEnum<'a> {
 struct Variant<'a> {
     doc_comment: Option<&'a str>,
     name: &'a str,
+    value: Option<&'a str>,
 }
 
 impl<'a> TypedefEnum<'a> {
@@ -174,6 +182,7 @@ impl<'a> TypedefEnum<'a> {
                                     result.doc_comment = Some(p.as_str().trim_end_matches(" \t"))
                                 }
                                 Rule::identifier => result.name = p.as_str(),
+                                Rule::enum_value => result.value = Some(p.as_str()),
                                 _ => {}
                             }
                         }
@@ -198,11 +207,20 @@ impl<'a> TypedefEnum<'a> {
         )?;
         for variant in &self.variants {
             write!(w, "{}", variant.doc_comment.unwrap_or(""))?;
-            writeln!(
-                w,
-                "    {},",
-                remove_prefix_to_pascal(self.name, variant.name)
-            )?;
+            if let Some(ref v) = variant.value {
+                writeln!(
+                    w,
+                    "    {} = {},",
+                    remove_prefix_to_pascal(self.name, variant.name),
+                    v,
+                )?;
+            } else {
+                writeln!(
+                    w,
+                    "    {},",
+                    remove_prefix_to_pascal(self.name, variant.name)
+                )?;
+            }
         }
         writeln!(w, "}}")
     }
@@ -471,6 +489,10 @@ fn main() {
             let wrapper_name = remove_prefix("ICoreWebView2", i.name);
             let wrapper_name = if wrapper_name.is_empty() {
                 "WebView".into()
+            } else if wrapper_name == "_2" {
+                "WebView2".into()
+            } else if wrapper_name == "_3" {
+                "WebView3".into()
             } else if wrapper_name == "IStream" {
                 "Stream".into()
             } else {
