@@ -4,7 +4,7 @@ const WEBVIEW_SDK_VERSION: &str = "2.1.0.774.44";
 
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
-    
+
     if std::env::var("CARGO_CFG_TARGET_OS").unwrap() != "windows" {
         return;
     }

@@ -9,7 +9,7 @@ use com::{
     interfaces::{iunknown::IUnknownVTable, IUnknown},
 };
 use std::ffi::c_void;
-use winapi::shared::basetsd::*;
+
 use winapi::shared::minwindef::{ULONG, *};
 use winapi::shared::ntdef::*;
 use winapi::shared::windef::*;

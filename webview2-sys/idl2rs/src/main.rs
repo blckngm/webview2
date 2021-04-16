@@ -141,7 +141,12 @@ impl<'a> Method<'a> {
         } else {
             ""
         };
-        write!(w, "    unsafe fn {}{}(&self", name_prefix, camel_to_snake(self.name))?;
+        write!(
+            w,
+            "    unsafe fn {}{}(&self",
+            name_prefix,
+            camel_to_snake(self.name)
+        )?;
         for p in &self.parameters {
             write!(w, ", ")?;
             p.render(w)?;
