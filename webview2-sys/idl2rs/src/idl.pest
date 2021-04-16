@@ -27,7 +27,8 @@ method_name = { identifier }
 method = { doc_comment? ~ method_attribute? ~ _type ~ method_name ~ "(" ~ parameters ~ ")" ~ ";" }
 
 // Enum.
-variant = { doc_comment? ~ identifier }
+variant_value = { ("0x" ~ (('A' .. 'F') | ('0' .. '9'))+) | digit+ }
+variant = { doc_comment? ~ identifier ~ (WHITESPACE? ~ "=" ~ WHITESPACE? ~ variant_value ~ WHITESPACE?)? }
 variants = _{ (variant ~ ("," ~ variant)* ~ ","?)? }
 typedef_enum = { doc_comment? ~ "[v1_enum]" ~ "typedef" ~ "enum" ~ identifier ~ "{" ~ variants ~ "}" ~ identifier ~ ";"  }
 

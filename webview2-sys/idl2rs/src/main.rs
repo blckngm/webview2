@@ -28,7 +28,17 @@ impl<'a> Type<'a> {
         for p in pair.into_inner() {
             match p.as_rule() {
                 Rule::identifier => {
-                    result.base_type = if p.as_str().eq_ignore_ascii_case("int") {
+                    result.base_type = if p.as_str().eq_ignore_ascii_case("uint32") {
+                        "u32".into()
+                    } else if p.as_str().eq_ignore_ascii_case("uint64") {
+                        "u64".into()
+                    } else if p.as_str().eq_ignore_ascii_case("int32") {
+                        "i32".into()
+                    } else if p.as_str().eq_ignore_ascii_case("int64") {
+                        "i64".into()
+                    } else if p.as_str().eq_ignore_ascii_case("uint") {
+                        "u32".into()
+                    } else if p.as_str().eq_ignore_ascii_case("int") {
                         "i32".into()
                     } else if p.as_str().eq_ignore_ascii_case("double") {
                         "f64".into()
@@ -153,6 +163,7 @@ struct TypedefEnum<'a> {
 struct Variant<'a> {
     doc_comment: Option<&'a str>,
     name: &'a str,
+    value: Option<&'a str>,
 }
 
 impl<'a> TypedefEnum<'a> {
@@ -174,6 +185,7 @@ impl<'a> TypedefEnum<'a> {
                                     result.doc_comment = Some(p.as_str().trim_end_matches(" \t"))
                                 }
                                 Rule::identifier => result.name = p.as_str(),
+                                Rule::variant_value => result.value = Some(p.as_str()),
                                 _ => {}
                             }
                         }
@@ -198,11 +210,20 @@ impl<'a> TypedefEnum<'a> {
         )?;
         for variant in &self.variants {
             write!(w, "{}", variant.doc_comment.unwrap_or(""))?;
-            writeln!(
-                w,
-                "    {},",
-                remove_prefix_to_pascal(self.name, variant.name)
-            )?;
+            if let Some(value) = variant.value {
+                writeln!(
+                    w,
+                    "    {} = {},",
+                    remove_prefix_to_pascal(self.name, variant.name),
+                    value
+                )?;
+            } else {
+                writeln!(
+                    w,
+                    "    {},",
+                    remove_prefix_to_pascal(self.name, variant.name)
+                )?;
+            }
         }
         writeln!(w, "}}")
     }
