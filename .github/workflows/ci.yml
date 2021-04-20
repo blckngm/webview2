@@ -31,6 +31,11 @@ jobs:
           mkdir -p webview2-sys/target/debug/deps &&
           cp webview2-sys/Microsoft.Web.WebView2.*/build/native/${{ fromJson('{ "x86_64": "x64", "i686": "x86" }')[matrix.arch] }}/WebView2Loader.dll webview2-sys/target/debug/deps
         if: ${{ matrix.env == 'gnu' }}
+      # This together with `resolver = 2` checks that we are not missing any
+      # features in dependencies, like in issue #7.
+      - uses: actions-rs/cargo@v1
+        with:
+          command: check
       - uses: actions-rs/cargo@v1
         with:
           command: test
@@ -67,22 +72,6 @@ jobs:
         with:
           command: test
           args: -Z minimal-versions
-
-  # Check with cargo feature features=dev_dep to avoid issues like #7.
-  check-features-dev_dep:
-    name: Check with -Z features=dev_dep
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: nightly
-          override: true
-      - uses: actions-rs/cargo@v1
-        with:
-          command: check
-          args: -Z features=dev_dep
 
   fmt:
     name: Rustfmt

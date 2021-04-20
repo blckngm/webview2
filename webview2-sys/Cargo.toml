@@ -6,6 +6,7 @@ edition = "2018"
 license = "MIT"
 description = "Low Level Bindings for WebView2 SDK"
 repository = "https://github.com/sopium/webview2"
+resolver = "2"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

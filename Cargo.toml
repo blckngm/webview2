@@ -10,6 +10,7 @@ repository = "https://github.com/sopium/webview2"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [workspace]
+resolver = "2"
 
 [dependencies]
 winapi = { version = "0.3.8", features = [
