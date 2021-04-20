@@ -1,6 +1,6 @@
 [package]
 name = "webview2-sys"
-version = "0.1.0-beta.1"
+version = "0.1.0"
 authors = ["Yin Guanhao <sopium@mysterious.site>"]
 edition = "2018"
 license = "MIT"
