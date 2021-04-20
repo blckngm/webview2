@@ -73,12 +73,12 @@ use winapi::shared::minwindef::*;
 use winapi::shared::ntdef::*;
 use winapi::shared::windef::*;
 use winapi::shared::winerror::{
-    E_FAIL, E_INVALIDARG, FACILITY_WIN32, HRESULT_CODE, HRESULT_FROM_WIN32, MAKE_HRESULT,
-    SEVERITY_ERROR, SUCCEEDED, S_OK,
+    E_FAIL, E_INVALIDARG, E_NOINTERFACE, FACILITY_WIN32, HRESULT_CODE, HRESULT_FROM_WIN32,
+    MAKE_HRESULT, SEVERITY_ERROR, SUCCEEDED, S_OK,
 };
 use winapi::um::combaseapi::{CoTaskMemAlloc, CoTaskMemFree};
 
-static DEFAULT_TARGET_COMPATIBLE_BROWSER_VERSION: &str = "86.0.622";
+static DEFAULT_TARGET_COMPATIBLE_BROWSER_VERSION: &str = "89.0.765";
 
 /// Returns a pointer that implements the COM callback interface with the specified closure.
 /// Inspired by C++ Microsoft::WRT::Callback.
@@ -805,6 +805,18 @@ impl Controller {
             inner: unsafe { add_ref_to_rc(ppv) },
         })
     }
+    pub fn get_controller2(&self) -> Result<Controller2> {
+        let inner = self
+            .inner
+            .get_interface::<dyn ICoreWebView2Controller2>()
+            .ok_or_else(|| Error::new(E_NOINTERFACE))?;
+        Ok(Controller2 { inner })
+    }
+}
+
+impl Controller2 {
+    get!(get_default_background_color, Color);
+    put!(put_default_background_color, color: Color);
 }
 
 impl WebView {
