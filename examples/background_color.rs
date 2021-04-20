@@ -1,6 +1,4 @@
-//! A demo using raw win32 API for window creation and event handling.
-//!
-//! Also features communication between the webpage and the host.
+//! Example for setting background color.
 
 use once_cell::unsync::OnceCell;
 use std::mem;
@@ -169,7 +167,8 @@ fn main() {
                     g: 255,
                     b: 255,
                     a: 255,
-                }).unwrap();
+                })
+                .unwrap();
             } else {
                 eprintln!("failed to get interface to controller2");
             }
