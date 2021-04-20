@@ -57,6 +57,7 @@ See the `examples` directory, especially the heavily commented `win32` example.
 // Caused by the `com_interface` macro.
 #![allow(clippy::cmp_null)]
 #![allow(clippy::type_complexity)]
+#![allow(non_camel_case_types)]
 
 use com::{interfaces::IUnknown, ComInterface, ComPtr, ComRc};
 use std::cell::{Cell, RefCell};
