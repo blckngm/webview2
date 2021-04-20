@@ -1318,16 +1318,16 @@ impl NewWindowRequestedEventArgs {
 }
 
 impl WindowFeatures {
-    get_bool!(has_position);
-    get_bool!(has_size);
+    get_bool!(get_has_position);
+    get_bool!(get_has_size);
     get!(get_left, u32);
     get!(get_top, u32);
     get!(get_height, u32);
     get!(get_width, u32);
-    get_bool!(get_menu_bar);
-    get_bool!(get_status);
-    get_bool!(get_toolbar);
-    get_bool!(get_scroll_bars);
+    get_bool!(get_should_display_menu_bar);
+    get_bool!(get_should_display_status);
+    get_bool!(get_should_display_toolbar);
+    get_bool!(get_should_display_scroll_bars);
 }
 
 impl MoveFocusRequestedEventArgs {

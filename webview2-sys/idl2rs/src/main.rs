@@ -28,7 +28,17 @@ impl<'a> Type<'a> {
         for p in pair.into_inner() {
             match p.as_rule() {
                 Rule::identifier => {
-                    result.base_type = if p.as_str().eq_ignore_ascii_case("int") {
+                    result.base_type = if p.as_str().eq_ignore_ascii_case("uint32") {
+                        "u32".into()
+                    } else if p.as_str().eq_ignore_ascii_case("uint64") {
+                        "u64".into()
+                    } else if p.as_str().eq_ignore_ascii_case("int32") {
+                        "i32".into()
+                    } else if p.as_str().eq_ignore_ascii_case("int64") {
+                        "i64".into()
+                    } else if p.as_str().eq_ignore_ascii_case("uint") {
+                        "u32".into()
+                    } else if p.as_str().eq_ignore_ascii_case("int") {
                         "i32".into()
                     } else if p.as_str().eq_ignore_ascii_case("double") {
                         "f64".into()
@@ -131,7 +141,12 @@ impl<'a> Method<'a> {
         } else {
             ""
         };
-        write!(w, "    unsafe fn {}{}(&self", name_prefix, camel_to_snake(self.name))?;
+        write!(
+            w,
+            "    unsafe fn {}{}(&self",
+            name_prefix,
+            camel_to_snake(self.name)
+        )?;
         for p in &self.parameters {
             write!(w, ", ")?;
             p.render(w)?;
@@ -153,6 +168,7 @@ struct TypedefEnum<'a> {
 struct Variant<'a> {
     doc_comment: Option<&'a str>,
     name: &'a str,
+    value: Option<&'a str>,
 }
 
 impl<'a> TypedefEnum<'a> {
@@ -174,6 +190,7 @@ impl<'a> TypedefEnum<'a> {
                                     result.doc_comment = Some(p.as_str().trim_end_matches(" \t"))
                                 }
                                 Rule::identifier => result.name = p.as_str(),
+                                Rule::variant_value => result.value = Some(p.as_str()),
                                 _ => {}
                             }
                         }
@@ -198,11 +215,20 @@ impl<'a> TypedefEnum<'a> {
         )?;
         for variant in &self.variants {
             write!(w, "{}", variant.doc_comment.unwrap_or(""))?;
-            writeln!(
-                w,
-                "    {},",
-                remove_prefix_to_pascal(self.name, variant.name)
-            )?;
+            if let Some(value) = variant.value {
+                writeln!(
+                    w,
+                    "    {} = {},",
+                    remove_prefix_to_pascal(self.name, variant.name),
+                    value
+                )?;
+            } else {
+                writeln!(
+                    w,
+                    "    {},",
+                    remove_prefix_to_pascal(self.name, variant.name)
+                )?;
+            }
         }
         writeln!(w, "}}")
     }
@@ -471,6 +497,10 @@ fn main() {
             let wrapper_name = remove_prefix("ICoreWebView2", i.name);
             let wrapper_name = if wrapper_name.is_empty() {
                 "WebView".into()
+            } else if wrapper_name == "_2" {
+                "WebView_2".into()
+            } else if wrapper_name == "_3" {
+                "WebView_3".into()
             } else if wrapper_name == "IStream" {
                 "Stream".into()
             } else {
@@ -518,7 +548,6 @@ use com::{com_interface, interfaces::{IUnknown, iunknown::IUnknownVTable}};
 use winapi::shared::minwindef::{*, ULONG};
 use winapi::shared::ntdef::*;
 use winapi::shared::windef::*;
-use winapi::shared::basetsd::*;
 use winapi::um::oaidl::VARIANT;
 use winapi::um::objidlbase::STATSTG;
 use std::ffi::c_void;
