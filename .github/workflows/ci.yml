@@ -10,7 +10,7 @@ jobs:
       matrix:
         version:
           - stable
-          - 1.50.0
+          - 1.51.0
         arch:
           - x86_64
           - i686
