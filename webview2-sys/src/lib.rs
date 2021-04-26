@@ -356,7 +356,10 @@ pub enum ScriptDialogKind {
 }
 
 /// Specifies the process failure type used in the
-/// `ICoreWebView2ProcessFailedEventHandler` interface.
+/// `ICoreWebView2ProcessFailedEventHandler` interface. The values in this enum
+/// make reference to the process kinds in the Chromium architecture. For more
+/// information about what these processes are and what they do, see
+/// [Browser Architecture - Inside look at modern web browser](https://developers.google.com/web/updates/2018/09/inside-browser-part1).
 #[repr(u32)]
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum ProcessFailedKind {
@@ -364,12 +367,49 @@ pub enum ProcessFailedKind {
     /// automatically moves to the Closed state.  The app has to recreate a new
     /// WebView to recover from this failure.
     BrowserProcessExited,
-    /// Indicates that the render process ended unexpectedly.  A new render
-    /// process is created automatically and navigated to an error page.  The app
-    /// runs `Reload()` to try to recover from the failure.
+    /// Indicates that the main frame's render process ended unexpectedly.  A new
+    /// render process is created automatically and navigated to an error page.
+    /// You can use the `Reload` method to try to reload the page that failed.
     RenderProcessExited,
-    /// Indicates that the render process is unresponsive.
+    /// Indicates that the main frame's render process is unresponsive.
     RenderProcessUnresponsive,
+    /// Indicates that a frame-only render process ended unexpectedly. The process
+    /// exit does not affect the top-level document, only a subset of the
+    /// subframes within it. The content in these frames is replaced with an error
+    /// page in the frame.
+    FrameRenderProcessExited,
+    /// Indicates that a utility process ended unexpectedly.
+    UtilityProcessExited,
+    /// Indicates that a sandbox helper process ended unexpectedly.
+    SandboxHelperProcessExited,
+    /// Indicates that the GPU process ended unexpectedly.
+    GpuProcessExited,
+    /// Indicates that a PPAPI plugin process ended unexpectedly.
+    PpapiPluginProcessExited,
+    /// Indicates that a PPAPI plugin broker process ended unexpectedly.
+    PpapiBrokerProcessExited,
+    /// Indicates that a process of unspecified kind ended unexpectedly.
+    UnknownProcessExited,
+}
+
+/// Specifies the process failure reason used in the
+/// `ICoreWebView2ProcessFailedEventHandler` interface.
+#[repr(u32)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum ProcessFailedReason {
+    /// An unexpected process failure occurred.
+    Unexpected,
+    /// The process became unresponsive.
+    /// This only applies to the main frame's render process.
+    Unresponsive,
+    /// The process was terminated. For example, from Task Manager.
+    Terminated,
+    /// The process crashed.
+    Crashed,
+    /// The process failed to launch.
+    LaunchFailed,
+    /// The process died due to running out of memory.
+    OutOfMemory,
 }
 
 /// Indicates the type of a permission request.
@@ -2226,7 +2266,10 @@ pub trait ICoreWebView2Settings: IUnknown {
 /// Event args for the `ProcessFailed` event.
 #[com_interface("8155a9a4-1474-4a86-8cae-151b0fa6b8ca")]
 pub trait ICoreWebView2ProcessFailedEventArgs: IUnknown {
-    /// The kind of process failure that has occurred.
+    /// The kind of process failure that has occurred. `processFailedKind` is
+    /// `COREWEBVIEW2_PROCESS_FAILED_KIND_RENDER_PROCESS_EXITED` if the
+    /// failed process is the main frame's renderer, even if there were subframes
+    /// rendered by such process; all frames are gone when this happens.
     unsafe fn get_process_failed_kind(
         &self,
         /* out, retval */ process_failed_kind: *mut ProcessFailedKind,
@@ -3254,8 +3297,11 @@ pub trait ICoreWebView2WebResourceResponseView: IUnknown {
 pub trait ICoreWebView2WebResourceResponseViewGetContentCompletedHandler: IUnknown {
     /// Provides the completion status and result of the corresponding
     /// asynchronous method call. A failure `errorCode` will be passed if the
-    /// content failed to load. `null` means no content was found. Note content
-    /// (if any) for redirect responses is ignored.
+    /// content failed to load. `E_ABORT` means the response loading was blocked
+    /// (e.g., by CORS policy); `ERROR_CANCELLED` means the response loading was
+    /// cancelled. `ERROR_NO_DATA` means the response has no content data,
+    /// `content` is `null` in this case. Note content (if any) is ignored for
+    /// redirects, 204 No Content, 205 Reset Content, and HEAD-request responses.
     unsafe fn invoke(
         &self,
         /* in */ error_code: HRESULT,
@@ -4132,6 +4178,95 @@ pub trait ICoreWebView2DevToolsProtocolEventReceiver: IUnknown {
         &self,
         /* in */ token: EventRegistrationToken,
     ) -> HRESULT;
+}
+
+/// A continuation of `ICoreWebView2ProcessFailedEventArgs` interface.
+#[com_interface("4dab9422-46fa-4c3e-a5d2-41d2071d3680")]
+pub trait ICoreWebView2ProcessFailedEventArgs2: ICoreWebView2ProcessFailedEventArgs {
+    /// The reason for the process failure. The reason is always
+    /// `COREWEBVIEW2_PROCESS_FAILED_REASON_UNEXPECTED` when `ProcessFailedKind`
+    /// is `COREWEBVIEW2_PROCESS_FAILED_KIND_BROWSER_PROCESS_EXITED`, and
+    /// `COREWEBVIEW2_PROCESS_FAILED_REASON_UNRESPONSIVE` when `ProcessFailedKind`
+    /// is `COREWEBVIEW2_PROCESS_FAILED_KIND_RENDER_PROCESS_UNRESPONSIVE`.
+    /// For other process failure kinds, the reason may be any of the reason
+    /// values.
+    unsafe fn get_reason(&self, /* out, retval */ reason: *mut ProcessFailedReason) -> HRESULT;
+
+    /// The exit code of the failing process, for telemetry purposes. The exit
+    /// code is always `1` when `ProcessFailedKind` is
+    /// `COREWEBVIEW2_PROCESS_FAILED_KIND_BROWSER_PROCESS_EXITED`, and
+    /// `STILL_ACTIVE` (`259`) when `ProcessFailedKind` is
+    /// `COREWEBVIEW2_PROCESS_FAILED_KIND_RENDER_PROCESS_UNRESPONSIVE`.
+    unsafe fn get_exit_code(&self, /* out, retval */ exit_code: *mut i32) -> HRESULT;
+
+    /// Description of the process assigned by the WebView2 Runtime. This is a
+    /// technical English term appropriate for logging or development purposes,
+    /// and not localized for the end user. It applies to utility processes (for
+    /// example, "Audio Service", "Video Capture") and plugin processes (for
+    /// example, "Flash"). The returned `processDescription` is empty if the
+    /// WebView2 Runtime did not assign a description to the process.
+    unsafe fn get_process_description(
+        &self,
+        /* out, retval */ process_description: *mut LPWSTR,
+    ) -> HRESULT;
+
+    /// The collection of `FrameInfo`s for frames in the `CoreWebView2` that were
+    /// being rendered by the failed process. The content in these frames is
+    /// replaced with an error page.
+    /// This is only available when `ProcessFailedKind` is
+    /// `COREWEBVIEW2_PROCESS_FAILED_KIND_FRAME_RENDER_PROCESS_EXITED`;
+    /// `frames` is `null` for all other process failure kinds, including the case
+    /// in which the failed process was the renderer for the main frame and
+    /// subframes within it, for which the failure kind is
+    /// `COREWEBVIEW2_PROCESS_FAILED_KIND_RENDER_PROCESS_EXITED`.
+    unsafe fn get_frame_infos_for_failed_process(
+        &self,
+        /* out, retval */ frames: *mut *mut *mut ICoreWebView2FrameInfoCollectionVTable,
+    ) -> HRESULT;
+}
+
+/// Collection of `FrameInfo`s (name and source). Used to list the affected
+/// frames' info when a frame-only render process failure occurs in the
+/// `ICoreWebView2`.
+#[com_interface("8f834154-d38e-4d90-affb-6800a7272839")]
+pub trait ICoreWebView2FrameInfoCollection: IUnknown {
+    /// Gets an iterator over the collection of `FrameInfo`s.
+    unsafe fn get_iterator(
+        &self,
+        /* out, retval */
+        iterator: *mut *mut *mut ICoreWebView2FrameInfoCollectionIteratorVTable,
+    ) -> HRESULT;
+}
+
+/// Iterator for a collection of `FrameInfo`s. For more info, see
+/// `ICoreWebView2ProcessFailedEventArgs2` and
+/// `ICoreWebView2FrameInfoCollection`.
+#[com_interface("1bf89e2d-1b2b-4629-b28f-05099b41bb03")]
+pub trait ICoreWebView2FrameInfoCollectionIterator: IUnknown {
+    /// `TRUE` when the iterator has not run out of `FrameInfo`s.  If the
+    /// collection over which the iterator is iterating is empty or if the
+    /// iterator has gone past the end of the collection, then this is `FALSE`.
+    unsafe fn get_has_current(&self, /* out, retval */ has_current: *mut BOOL) -> HRESULT;
+
+    /// Get the current `ICoreWebView2FrameInfo` of the iterator.
+    unsafe fn get_current(
+        &self,
+        /* out, retval */ frame_info: *mut *mut *mut ICoreWebView2FrameInfoVTable,
+    ) -> HRESULT;
+
+    /// Move the iterator to the next `FrameInfo` in the collection.
+    unsafe fn move_next(&self, /* out, retval */ has_next: *mut BOOL) -> HRESULT;
+}
+
+/// Provides a set of properties for a frame in the `ICoreWebView2`.
+#[com_interface("da86b8a1-bdf3-4f11-9955-528cefa59727")]
+pub trait ICoreWebView2FrameInfo: IUnknown {
+    /// The name attribute of the frame, as in `<iframe name="frame-name" ...>`.
+    /// The returned string is empty when the frame has no name attribute.
+    unsafe fn get_name(&self, /* out, retval */ name: *mut LPWSTR) -> HRESULT;
+
+    /// The URI of the document in the frame.
+    unsafe fn get_source(&self, /* out, retval */ source: *mut LPWSTR) -> HRESULT;
 }
 
 #[com_interface("912b34a7-d10b-49c4-af18-7cb7e604e01a")]

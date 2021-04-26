@@ -1016,6 +1016,102 @@ impl DevToolsProtocolEventReceiver {
     }
 }
 
+/// Wrapper for `ICoreWebView2ProcessFailedEventArgs2`.
+#[derive(Clone)]
+pub struct ProcessFailedEventArgs2 {
+    inner: ComRc<dyn ICoreWebView2ProcessFailedEventArgs2>,
+}
+impl From<ComRc<dyn ICoreWebView2ProcessFailedEventArgs2>> for ProcessFailedEventArgs2 {
+    fn from(inner: ComRc<dyn ICoreWebView2ProcessFailedEventArgs2>) -> Self {
+        Self { inner }
+    }
+}
+impl fmt::Debug for ProcessFailedEventArgs2 {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ProcessFailedEventArgs2").finish()
+    }
+}
+impl ProcessFailedEventArgs2 {
+    pub fn into_inner(self) -> ComRc<dyn ICoreWebView2ProcessFailedEventArgs2> {
+        self.inner
+    }
+    pub fn as_inner(&self) -> &ComRc<dyn ICoreWebView2ProcessFailedEventArgs2> {
+        &self.inner
+    }
+}
+
+/// Wrapper for `ICoreWebView2FrameInfoCollection`.
+#[derive(Clone)]
+pub struct FrameInfoCollection {
+    inner: ComRc<dyn ICoreWebView2FrameInfoCollection>,
+}
+impl From<ComRc<dyn ICoreWebView2FrameInfoCollection>> for FrameInfoCollection {
+    fn from(inner: ComRc<dyn ICoreWebView2FrameInfoCollection>) -> Self {
+        Self { inner }
+    }
+}
+impl fmt::Debug for FrameInfoCollection {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("FrameInfoCollection").finish()
+    }
+}
+impl FrameInfoCollection {
+    pub fn into_inner(self) -> ComRc<dyn ICoreWebView2FrameInfoCollection> {
+        self.inner
+    }
+    pub fn as_inner(&self) -> &ComRc<dyn ICoreWebView2FrameInfoCollection> {
+        &self.inner
+    }
+}
+
+/// Wrapper for `ICoreWebView2FrameInfoCollectionIterator`.
+#[derive(Clone)]
+pub struct FrameInfoCollectionIterator {
+    inner: ComRc<dyn ICoreWebView2FrameInfoCollectionIterator>,
+}
+impl From<ComRc<dyn ICoreWebView2FrameInfoCollectionIterator>> for FrameInfoCollectionIterator {
+    fn from(inner: ComRc<dyn ICoreWebView2FrameInfoCollectionIterator>) -> Self {
+        Self { inner }
+    }
+}
+impl fmt::Debug for FrameInfoCollectionIterator {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("FrameInfoCollectionIterator").finish()
+    }
+}
+impl FrameInfoCollectionIterator {
+    pub fn into_inner(self) -> ComRc<dyn ICoreWebView2FrameInfoCollectionIterator> {
+        self.inner
+    }
+    pub fn as_inner(&self) -> &ComRc<dyn ICoreWebView2FrameInfoCollectionIterator> {
+        &self.inner
+    }
+}
+
+/// Wrapper for `ICoreWebView2FrameInfo`.
+#[derive(Clone)]
+pub struct FrameInfo {
+    inner: ComRc<dyn ICoreWebView2FrameInfo>,
+}
+impl From<ComRc<dyn ICoreWebView2FrameInfo>> for FrameInfo {
+    fn from(inner: ComRc<dyn ICoreWebView2FrameInfo>) -> Self {
+        Self { inner }
+    }
+}
+impl fmt::Debug for FrameInfo {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("FrameInfo").finish()
+    }
+}
+impl FrameInfo {
+    pub fn into_inner(self) -> ComRc<dyn ICoreWebView2FrameInfo> {
+        self.inner
+    }
+    pub fn as_inner(&self) -> &ComRc<dyn ICoreWebView2FrameInfo> {
+        &self.inner
+    }
+}
+
 /// Wrapper for `ICoreWebView2Interop`.
 #[derive(Clone)]
 pub struct Interop {
