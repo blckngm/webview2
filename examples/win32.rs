@@ -8,8 +8,30 @@ use std::ptr;
 use std::rc::Rc;
 use webview2::Controller;
 use winapi::{
-    shared::minwindef::*, shared::windef::*, um::libloaderapi::GetModuleHandleW, um::winuser::*,
+    shared::minwindef::*, shared::windef::*, um::libloaderapi::*, um::winbase::MulDiv,
+    um::wingdi::*, um::winuser::*,
 };
+
+fn set_dpi_aware() {
+    unsafe {
+        // Windows 10.
+        let user32 = LoadLibraryA(b"user32.dll\0".as_ptr() as *const i8);
+        let set_thread_dpi_awareness_context = GetProcAddress(
+            user32,
+            b"SetThreadDpiAwarenessContext\0".as_ptr() as *const i8,
+        );
+        if !set_thread_dpi_awareness_context.is_null() {
+            let set_thread_dpi_awareness_context: extern "system" fn(
+                DPI_AWARENESS_CONTEXT,
+            )
+                -> DPI_AWARENESS_CONTEXT = mem::transmute(set_thread_dpi_awareness_context);
+            set_thread_dpi_awareness_context(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+            return;
+        }
+        // Windows 7.
+        SetProcessDPIAware();
+    }
+}
 
 fn main() {
     if webview2::get_available_browser_version_string(None).is_err() {
@@ -42,10 +64,7 @@ fn main() {
     let width = 600;
     let height = 400;
 
-    unsafe {
-        // High DPI support.
-        SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
-    }
+    set_dpi_aware();
 
     let controller = Rc::new(OnceCell::<Controller>::new());
     let controller_clone = controller.clone();
@@ -124,7 +143,9 @@ fn main() {
 
     // Create window. (Standard windows GUI boilerplate).
     let window_title = utf_16_null_terminiated("WebView2 - Win 32");
-    let dpi = unsafe { GetDpiForSystem() } as i32;
+    let hdc = unsafe { GetDC(ptr::null_mut()) };
+    let dpi = unsafe { GetDeviceCaps(hdc, LOGPIXELSX) };
+    unsafe { ReleaseDC(ptr::null_mut(), hdc) };
     let hwnd = unsafe {
         CreateWindowExW(
             0,
@@ -133,8 +154,8 @@ fn main() {
             WS_OVERLAPPEDWINDOW,
             CW_USEDEFAULT,
             CW_USEDEFAULT,
-            width * dpi / USER_DEFAULT_SCREEN_DPI,
-            height * dpi / USER_DEFAULT_SCREEN_DPI,
+            MulDiv(width, dpi, USER_DEFAULT_SCREEN_DPI),
+            MulDiv(height, dpi, USER_DEFAULT_SCREEN_DPI),
             ptr::null_mut(),
             ptr::null_mut(),
             h_instance,
