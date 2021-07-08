@@ -469,11 +469,16 @@ macro_rules! get_interface {
         pub fn $get_method(&self) -> Result<$T> {
             let mut ppv = MaybeUninit::<*mut *mut $VT>::uninit();
             check_hresult(unsafe { self.inner.$get_method(ppv.as_mut_ptr()) })?;
-            Ok(unsafe {
-                $T {
-                    inner: add_ref_to_rc(ppv.assume_init()),
-                }
-            })
+            let ppv = unsafe { ppv.assume_init() };
+            if ppv.is_null() {
+                Err(Error::new(E_FAIL))
+            } else {
+                Ok(unsafe {
+                    $T {
+                        inner: add_ref_to_rc(ppv),
+                    }
+                })
+            }
         }
     };
 }
