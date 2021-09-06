@@ -1174,10 +1174,7 @@ impl HttpRequestHeaders {
         check_hresult(unsafe { self.inner.set_header(name.as_ptr(), value.as_ptr()) })
     }
     put_string!(remove_header);
-    get_interface!(
-        get_iterator,
-        HttpHeadersCollectionIterator
-    );
+    get_interface!(get_iterator, HttpHeadersCollectionIterator);
 }
 
 impl HttpResponseHeaders {
@@ -1216,10 +1213,7 @@ impl HttpResponseHeaders {
             inner: unsafe { add_ref_to_rc(iterator) },
         })
     }
-    get_interface!(
-        get_iterator,
-        HttpHeadersCollectionIterator
-    );
+    get_interface!(get_iterator, HttpHeadersCollectionIterator);
 }
 
 impl Deferral {
@@ -1233,19 +1227,13 @@ impl WebResourceRequest {
     put_string!(put_method);
     get_interface!(get_content, Stream);
     put_interface!(put_content, Stream);
-    get_interface!(
-        get_headers,
-        HttpRequestHeaders
-    );
+    get_interface!(get_headers, HttpRequestHeaders);
 }
 
 impl WebResourceResponse {
     get_interface!(get_content, Stream);
     put_interface!(put_content, Stream);
-    get_interface!(
-        get_headers,
-        HttpResponseHeaders
-    );
+    get_interface!(get_headers, HttpResponseHeaders);
     get!(get_status_code, i32);
     put!(put_status_code, status_code: i32);
     get_string!(get_reason_phrase);
@@ -1253,14 +1241,8 @@ impl WebResourceResponse {
 }
 
 impl WebResourceRequestedEventArgs {
-    get_interface!(
-        get_request,
-        WebResourceRequest
-    );
-    get_interface!(
-        get_response,
-        WebResourceResponse
-    );
+    get_interface!(get_request, WebResourceRequest);
+    get_interface!(get_response, WebResourceResponse);
     put_interface!(put_response, WebResourceResponse);
     get_interface!(get_deferral, Deferral);
     get!(get_resource_context, WebResourceContext);
@@ -1276,10 +1258,7 @@ impl NavigationStartingEventArgs {
     get_string!(get_uri);
     get_bool!(get_is_user_initiated);
     get_bool!(get_is_redirected);
-    get_interface!(
-        get_request_headers,
-        HttpRequestHeaders
-    );
+    get_interface!(get_request_headers, HttpRequestHeaders);
     get_bool!(get_cancel);
     put_bool!(put_cancel);
     get!(get_navigation_id, u64);
@@ -1321,10 +1300,7 @@ impl NewWindowRequestedEventArgs {
     get_bool!(get_handled);
     get_bool!(get_is_user_initiated);
     get_interface!(get_deferral, Deferral);
-    get_interface!(
-        get_window_features,
-        WindowFeatures
-    );
+    get_interface!(get_window_features, WindowFeatures);
 }
 
 impl WindowFeatures {
