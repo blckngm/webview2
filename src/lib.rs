@@ -465,11 +465,10 @@ macro_rules! put {
 }
 
 macro_rules! get_interface {
-    ($get_method:ident, $T: ident, $VT: ident) => {
+    ($get_method:ident, $T: ident) => {
         pub fn $get_method(&self) -> Result<$T> {
-            let mut ppv = MaybeUninit::<*mut *mut $VT>::uninit();
-            check_hresult(unsafe { self.inner.$get_method(ppv.as_mut_ptr()) })?;
-            let ppv = unsafe { ppv.assume_init() };
+            let mut ppv = ptr::null_mut();
+            check_hresult(unsafe { self.inner.$get_method(&mut ppv) })?;
             if ppv.is_null() {
                 Err(Error::new(E_FAIL))
             } else {
@@ -1177,8 +1176,7 @@ impl HttpRequestHeaders {
     put_string!(remove_header);
     get_interface!(
         get_iterator,
-        HttpHeadersCollectionIterator,
-        ICoreWebView2HttpHeadersCollectionIteratorVTable
+        HttpHeadersCollectionIterator
     );
 }
 
@@ -1220,8 +1218,7 @@ impl HttpResponseHeaders {
     }
     get_interface!(
         get_iterator,
-        HttpHeadersCollectionIterator,
-        ICoreWebView2HttpHeadersCollectionIteratorVTable
+        HttpHeadersCollectionIterator
     );
 }
 
@@ -1234,22 +1231,20 @@ impl WebResourceRequest {
     put_string!(put_uri);
     get_string!(get_method);
     put_string!(put_method);
-    get_interface!(get_content, Stream, IStreamVTable);
+    get_interface!(get_content, Stream);
     put_interface!(put_content, Stream);
     get_interface!(
         get_headers,
-        HttpRequestHeaders,
-        ICoreWebView2HttpRequestHeadersVTable
+        HttpRequestHeaders
     );
 }
 
 impl WebResourceResponse {
-    get_interface!(get_content, Stream, IStreamVTable);
+    get_interface!(get_content, Stream);
     put_interface!(put_content, Stream);
     get_interface!(
         get_headers,
-        HttpResponseHeaders,
-        ICoreWebView2HttpResponseHeadersVTable
+        HttpResponseHeaders
     );
     get!(get_status_code, i32);
     put!(put_status_code, status_code: i32);
@@ -1260,16 +1255,14 @@ impl WebResourceResponse {
 impl WebResourceRequestedEventArgs {
     get_interface!(
         get_request,
-        WebResourceRequest,
-        ICoreWebView2WebResourceRequestVTable
+        WebResourceRequest
     );
     get_interface!(
         get_response,
-        WebResourceResponse,
-        ICoreWebView2WebResourceResponseVTable
+        WebResourceResponse
     );
     put_interface!(put_response, WebResourceResponse);
-    get_interface!(get_deferral, Deferral, ICoreWebView2DeferralVTable);
+    get_interface!(get_deferral, Deferral);
     get!(get_resource_context, WebResourceContext);
 }
 
@@ -1285,8 +1278,7 @@ impl NavigationStartingEventArgs {
     get_bool!(get_is_redirected);
     get_interface!(
         get_request_headers,
-        HttpRequestHeaders,
-        ICoreWebView2HttpRequestHeadersVTable
+        HttpRequestHeaders
     );
     get_bool!(get_cancel);
     put_bool!(put_cancel);
@@ -1305,7 +1297,7 @@ impl ScriptDialogOpeningEventArgs {
     get_string!(get_default_text);
     get_string!(get_result_text);
     put_string!(put_result_text);
-    get_interface!(get_deferral, Deferral, ICoreWebView2DeferralVTable);
+    get_interface!(get_deferral, Deferral);
 }
 
 impl PermissionRequestedEventArgs {
@@ -1314,7 +1306,7 @@ impl PermissionRequestedEventArgs {
     get_bool!(get_is_user_initiated);
     get!(get_state, PermissionState);
     put!(put_state, state: PermissionState);
-    get_interface!(get_deferral, Deferral, ICoreWebView2DeferralVTable);
+    get_interface!(get_deferral, Deferral);
 }
 
 impl ProcessFailedEventArgs {
@@ -1324,15 +1316,14 @@ impl ProcessFailedEventArgs {
 impl NewWindowRequestedEventArgs {
     get_string!(get_uri);
     put_interface!(put_new_window, WebView);
-    get_interface!(get_new_window, WebView, ICoreWebView2VTable);
+    get_interface!(get_new_window, WebView);
     put_bool!(put_handled);
     get_bool!(get_handled);
     get_bool!(get_is_user_initiated);
-    get_interface!(get_deferral, Deferral, ICoreWebView2DeferralVTable);
+    get_interface!(get_deferral, Deferral);
     get_interface!(
         get_window_features,
-        WindowFeatures,
-        ICoreWebView2WindowFeaturesVTable
+        WindowFeatures
     );
 }
 
