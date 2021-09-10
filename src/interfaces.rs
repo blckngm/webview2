@@ -74,20 +74,20 @@ impl WebView_3 {
 
 /// Wrapper for `ICoreWebView2_4`.
 #[derive(Clone)]
-pub struct _4 {
+pub struct WebView_4 {
     inner: ComRc<dyn ICoreWebView2_4>,
 }
-impl From<ComRc<dyn ICoreWebView2_4>> for _4 {
+impl From<ComRc<dyn ICoreWebView2_4>> for WebView_4 {
     fn from(inner: ComRc<dyn ICoreWebView2_4>) -> Self {
         Self { inner }
     }
 }
-impl fmt::Debug for _4 {
+impl fmt::Debug for WebView_4 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("_4").finish()
+        f.debug_struct("WebView_4").finish()
     }
 }
-impl _4 {
+impl WebView_4 {
     pub fn into_inner(self) -> ComRc<dyn ICoreWebView2_4> {
         self.inner
     }
@@ -98,20 +98,20 @@ impl _4 {
 
 /// Wrapper for `ICoreWebView2_5`.
 #[derive(Clone)]
-pub struct _5 {
+pub struct WebView_5 {
     inner: ComRc<dyn ICoreWebView2_5>,
 }
-impl From<ComRc<dyn ICoreWebView2_5>> for _5 {
+impl From<ComRc<dyn ICoreWebView2_5>> for WebView_5 {
     fn from(inner: ComRc<dyn ICoreWebView2_5>) -> Self {
         Self { inner }
     }
 }
-impl fmt::Debug for _5 {
+impl fmt::Debug for WebView_5 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("_5").finish()
+        f.debug_struct("WebView_5").finish()
     }
 }
-impl _5 {
+impl WebView_5 {
     pub fn into_inner(self) -> ComRc<dyn ICoreWebView2_5> {
         self.inner
     }

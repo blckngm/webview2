@@ -501,6 +501,10 @@ fn main() {
                 "WebView_2".into()
             } else if wrapper_name == "_3" {
                 "WebView_3".into()
+            } else if wrapper_name  == "_4" {
+                "WebView_4".into()
+            } else if wrapper_name == "_5" {
+                "WebView_5".into()
             } else if wrapper_name == "IStream" {
                 "Stream".into()
             } else {
