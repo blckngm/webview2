@@ -15,7 +15,7 @@ pointer = { "*" }
 _type = { identifier ~ (_const | pointer)* }
 
 // Method.
-parameter_attribute = { identifier }
+parameter_attribute = { identifier ~ ( "(" ~ identifier ~ ")" )? }
 parameter_attributes = _{ "[" ~ parameter_attribute ~ ("," ~ parameter_attribute)* ~ "]" }
 parameter = { parameter_attributes? ~ _type ~ identifier }
 
