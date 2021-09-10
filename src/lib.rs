@@ -1083,6 +1083,19 @@ impl Settings {
 
     get_bool!(get_is_built_in_error_page_enabled);
     put_bool!(put_is_built_in_error_page_enabled);
+
+    pub fn get_settings2(&self) -> Result<Settings2> {
+        let inner = self
+            .inner
+            .get_interface::<dyn ICoreWebView2Settings2>()
+            .ok_or_else(|| Error::new(E_NOINTERFACE))?;
+        Ok(Settings2 { inner })
+    }
+}
+
+impl Settings2 {
+    get_string!(get_user_agent);
+    put_string!(put_user_agent);
 }
 
 impl ContentLoadingEventArgs {
