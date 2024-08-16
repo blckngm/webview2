@@ -1054,6 +1054,110 @@ impl WebView {
         ICoreWebView2WindowCloseRequestedEventHandler
     );
     remove_event_handler!(remove_window_close_requested);
+    pub fn get_webview2(&self) -> Result<WebView_2> {
+        let inner = self
+            .inner
+            .get_interface::<dyn ICoreWebView2_2>()
+            .ok_or_else(|| Error::new(E_NOINTERFACE))?;
+        Ok(WebView_2 { inner })
+    }
+}
+
+impl WebView_2 {
+    get_interface!(get_cookie_manager, CookieManager);
+}
+
+impl CookieManager {
+    pub fn create_cookie(
+        &self,
+        name: &str,
+        value: &str,
+        domain: &str,
+        path: &str,
+    ) -> Result<Cookie> {
+        let mut ppv: *mut *mut ICoreWebView2CookieVTable = ptr::null_mut();
+        let name = WideCString::from_str(name)?;
+        let value = WideCString::from_str(value)?;
+        let domain = WideCString::from_str(domain)?;
+        let path = WideCString::from_str(path)?;
+        check_hresult(unsafe {
+            self.inner.create_cookie(
+                name.as_ptr(),
+                value.as_ptr(),
+                domain.as_ptr(),
+                path.as_ptr(),
+                &mut ppv,
+            )
+        })?;
+        Ok(Cookie {
+            inner: unsafe { add_ref_to_rc(ppv) },
+        })
+    }
+
+    pub fn get_cookies(
+        &self,
+        uri: &str,
+        callback: impl FnOnce(CookieList) -> Result<()> + 'static,
+    ) -> Result<()> {
+        let uri = WideCString::from_str(uri)?;
+        let callback = Cell::new(Some(callback));
+
+        let handler = callback!(
+            ICoreWebView2GetCookiesCompletedHandler,
+            move |error_code: HRESULT, list: *mut *mut ICoreWebView2CookieListVTable| -> HRESULT {
+                to_hresult(check_hresult(error_code).and_then(|_| {
+                    let list = CookieList {
+                        inner: unsafe { add_ref_to_rc(list) },
+                    };
+
+                    if let Some(callback) = callback.take() {
+                        callback(list)
+                    } else {
+                        Ok(())
+                    }
+                }))
+            }
+        );
+
+        check_hresult(unsafe { self.inner.get_cookies(uri.as_ptr(), handler.as_raw()) })
+    }
+
+    call!(delete_all_cookies);
+}
+
+impl CookieList {
+    get!(get_count, u32);
+    pub fn get_value_at_index(&self, index: u32) -> Result<Cookie> {
+        let mut ppv: *mut *mut ICoreWebView2CookieVTable = ptr::null_mut();
+        check_hresult(unsafe { self.inner.get_value_at_index(index, &mut ppv) })?;
+        Ok(Cookie {
+            inner: unsafe { add_ref_to_rc(ppv) },
+        })
+    }
+}
+
+impl Cookie {
+    get_string!(get_name);
+
+    get_string!(get_value);
+    put_string!(put_value);
+
+    get_string!(get_domain);
+    get_string!(get_path);
+
+    get!(get_expires, f64);
+    put!(put_expires, expires: f64);
+
+    get_bool!(get_is_http_only);
+    put_bool!(put_is_http_only);
+
+    get!(get_same_site, CookieSameSiteKind);
+    put!(put_same_site, same_site: CookieSameSiteKind);
+
+    get_bool!(get_is_secure);
+    put_bool!(put_is_secure);
+
+    get_bool!(get_is_session);
 }
 
 impl Settings {
